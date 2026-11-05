@@ -6,13 +6,13 @@ Extensão por @andrz.wav para o MKTZap no Chrome e Opera GX.
 
 Baixe **Instalar MKT ORGANIZER.exe** na [publicação mais recente](https://github.com/andresauloparacopias-blip/mktOrganizer/releases/latest).
 
-1. Execute o instalador e clique em **Instalar / atualizar arquivos**.
-2. Mantenha marcada a opção **Receber atualizações automáticas**.
+1. Execute o EXE e clique em **Baixar / atualizar do GitHub**.
+2. Mantenha marcada a opção **Verificar atualizações automaticamente a cada 30 minutos**.
 3. Os arquivos ficam em **Documentos\MKTZAP\MKT ORGANIZER**, sem exigir administrador.
-4. Na primeira vez, abra a tela de extensões pelo botão do navegador, ative **Modo de desenvolvedor**, clique em **Carregar sem compactação** e selecione essa pasta. O botão **Copiar caminho** ajuda nessa etapa.
+4. Na primeira vez, abra a tela de extensões no Opera, Opera GX ou Chrome, ative **Modo de desenvolvedor**, clique em **Carregar sem compactação** e selecione essa pasta. O botão **Copiar caminho** ajuda nessa etapa.
 5. Abra ou atualize o MKTZap.
 
-A primeira ativação no navegador é manual. O instalador não altera preferências internas ou políticas do Chrome/Opera.
+O EXE cuida apenas de baixar e atualizar arquivos. A primeira ativação no navegador é manual; ele não ativa o modo desenvolvedor nem altera preferências internas ou políticas do navegador. O botão de atualização busca a versão mais recente publicada no GitHub, independentemente da versão embutida no EXE.
 
 ## Atualizações automáticas
 
@@ -22,7 +22,7 @@ Os arquivos anteriores ficam em **Documentos\MKTZAP\Backups MKT ORGANIZER**. O e
 
 Pastas, sinalizações, contatos, configurações e lembretes ficam no armazenamento de cada perfil do navegador. O atualizador não apaga nem sincroniza esses dados. Não remova a extensão para atualizar. Se ela foi instalada antes em outra pasta, exporte o backup em **Ajustes**, ative a pasta do instalador e importe o backup.
 
-Para desativar o atualizador, execute novamente o instalador, desmarque **Receber atualizações automáticas** e aplique. O registro de erros fica em `%LOCALAPPDATA%\MKT ORGANIZER\atualizador.log`.
+Para desativar o atualizador, execute novamente o instalador, desmarque **Verificar atualizações automaticamente a cada 30 minutos** e aplique. O registro de erros fica em `%LOCALAPPDATA%\MKT ORGANIZER\atualizador.log`.
 
 ## Publicar uma atualização
 

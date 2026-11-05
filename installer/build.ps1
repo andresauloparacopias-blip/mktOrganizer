@@ -31,7 +31,7 @@ $image=[Drawing.Bitmap]::new((Join-Path $payload 'icons\icon128.png'))
 $icon=[Drawing.Icon]::FromHandle($image.GetHicon());$stream=[IO.File]::Create((Join-Path $temp 'app.ico'))
 try{$icon.Save($stream)}finally{$stream.Dispose();$icon.Dispose();$image.Dispose()}
 foreach($name in @('Installer.cs','Updater.cs','app.manifest')){
- [IO.File]::WriteAllText((Join-Path $temp $name),[IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)).Replace('3.3.47',$version),$utf8)
+ [IO.File]::WriteAllText((Join-Path $temp $name),[IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)).Replace('3.3.48',$version),$utf8)
 }
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if(!(Test-Path -LiteralPath $compiler)){$compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'}

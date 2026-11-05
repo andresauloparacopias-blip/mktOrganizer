@@ -1,4 +1,4 @@
-# MKT ORGANIZER 3.3.47
+# MKT ORGANIZER 3.3.48
 
 Extensão por @andrz.wav
 
@@ -66,15 +66,13 @@ Os separadores de data respeitam o fluxo das mensagens nativas no chat e no hist
 O campo de mensagem cresce e retrai conforme o conteúdo digitado ou apagado, mantendo o redimensionamento manual.
 
 
-## Instalar no Windows pelo EXE
+## Baixar e atualizar arquivos pelo EXE
 
-Execute `Instalar MKT ORGANIZER.exe` e clique em **Instalar / atualizar arquivos**. O instalador salva a extensão em **Documentos\MKTZAP\MKT ORGANIZER**, sem precisar de administrador. Ele usa a pasta Documentos configurada no Windows, inclusive quando está no OneDrive.
+Execute **Instalar MKT ORGANIZER.exe** e clique em **Baixar / atualizar do GitHub**. O programa busca a publicação mais recente de andresauloparacopias-blip/mktOrganizer, confere o SHA-256 e atualiza a pasta **Documentos\MKTZAP\MKT ORGANIZER**. Ele usa a pasta Documentos configurada no Windows, inclusive no OneDrive, e não precisa de administrador.
 
-Na primeira instalação, clique em **Abrir Chrome** ou **Abrir Opera GX**, ative **Modo de desenvolvedor**, use **Carregar sem compactação** e selecione a pasta exibida. O botão **Copiar caminho** facilita a seleção. Depois, abra ou atualize o MKTZap.
+Mantenha **Verificar atualizações automaticamente a cada 30 minutos** marcado para receber as próximas publicações. Os arquivos substituídos recebem backup em **Documentos\MKTZAP\Backups MKT ORGANIZER**. Se o GitHub estiver indisponível, uma instalação nova pode usar os arquivos incluídos no EXE; numa atualização, os arquivos existentes são preservados e a tentativa é repetida depois.
 
-Para atualizar, execute o instalador da versão mais recente, clique em **Instalar / atualizar arquivos**, recarregue a extensão na tela do navegador e atualize o MKTZap. As versões anteriores dos arquivos substituídos ficam em **Documentos\MKTZAP\Backups MKT ORGANIZER**. Os dados e ajustes continuam no armazenamento do navegador; evite remover a extensão para atualizar.
-
-O instalador inclui todos os arquivos e pode ativar a atualização automática pelo repositório andresauloparacopias-blip/mktOrganizer. O Windows verifica publicações a cada 30 minutos, quando o usuário está conectado. A extensão recarrega após a atualização completa. Páginas abertas do MKTZap podem ser atualizadas quando você terminar de escrever; o atualizador não fecha o navegador nem apaga rascunhos.
+O EXE não ativa o modo desenvolvedor nem instala a extensão no navegador. Na primeira instalação, carregue a pasta manualmente em Opera, Opera GX ou Chrome. Depois, a extensão recarrega ao detectar uma atualização completa; atualize páginas do MKTZap quando terminar de escrever. O programa não fecha nem recarrega essas páginas à força.
 
 ## Atualização automática e preservação dos dados
 

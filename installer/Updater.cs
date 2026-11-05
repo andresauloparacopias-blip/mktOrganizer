@@ -124,6 +124,13 @@ internal static class AutoUpdater {
         if(!settings.ContainsKey("enabled")||!Object.Equals(settings["enabled"],true))return "Atualizações desativadas.";
         string target=settings["installPath"] as string;
         if(String.IsNullOrWhiteSpace(target)||!File.Exists(Path.Combine(target,"manifest.json")))return "Pasta da extensão não encontrada.";
+        return await PullLatest(target,()=>{
+            var current=Json.Deserialize<Dictionary<string,object>>(File.ReadAllText(SettingsPath));
+            return current.ContainsKey("enabled")&&Object.Equals(current["enabled"],true);
+        });
+    }
+    public static async System.Threading.Tasks.Task<string> PullLatest(string target,Func<bool> stillEnabled=null) {
+        Directory.CreateDirectory(AppFolder);
         string scratch=Path.Combine(AppFolder,"download-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(scratch);
         try {
             string meta=Path.Combine(scratch,"update.json"),zip=Path.Combine(scratch,"extension.zip");
@@ -131,7 +138,7 @@ internal static class AutoUpdater {
             if(!Newer(feed.version,ReadVersion(target)))return "A versão instalada já é a mais recente.";
             await Download(feed.archiveUrl,zip,40*1024*1024);
             // Honor opt-out even if the setting changed while the download was in progress.
-            settings=Json.Deserialize<Dictionary<string,object>>(File.ReadAllText(SettingsPath));if(!Object.Equals(settings["enabled"],true))return "Atualizações desativadas.";
+            if(stillEnabled!=null&&!stillEnabled())return "Atualizações desativadas.";
             return Apply(feed,zip,target)?"Versão "+feed.version+" instalada. A extensão recarregará automaticamente; páginas abertas podem ser atualizadas quando você terminar de escrever.":"A versão instalada já é a mais recente.";
         }finally{try{Directory.Delete(scratch,true);}catch{}}
     }

@@ -13,11 +13,11 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Instalar MKT ORGANIZER")]
 [assembly: AssemblyProduct("MKT ORGANIZER")]
-[assembly: AssemblyVersion("3.3.47.0")]
-[assembly: AssemblyFileVersion("3.3.47.0")]
+[assembly: AssemblyVersion("3.3.48.0")]
+[assembly: AssemblyFileVersion("3.3.48.0")]
 
 internal static class Bundle {
-    public const string Version = "3.3.47";
+    public const string Version = "3.3.48";
     public static string DocumentsTarget {
         get {
             string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
@@ -139,115 +139,49 @@ internal static class Bundle {
 }
 
 internal sealed class InstallerForm : Form {
-    readonly Color Ink = Color.FromArgb(25, 48, 64), Teal = Color.FromArgb(22, 124, 103);
-    readonly TextBox pathBox;
-    readonly Button install, chrome, opera, copy, folder;
-    readonly Label status;
+    readonly Color ink=Color.FromArgb(25,48,64),teal=Color.FromArgb(22,124,103);
+    readonly Button update,copy,folder;
+    readonly CheckBox automatic;
+    readonly Label status,version;
     readonly ProgressBar progress;
     bool busy;
-    readonly CheckBox automatic;
-    public InstallerForm() {
-        Text = "Instalar MKT ORGANIZER · " + Bundle.Version;
-        Font = new Font("Segoe UI", 10F);
-        ForeColor = Ink; BackColor = Color.FromArgb(246, 249, 251);
-        AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(820, 660); MinimumSize = new Size(760, 690);
-        StartPosition = FormStartPosition.CenterScreen;
-        using (var stream = Bundle.Resource("app.ico")) Icon = new Icon(stream);
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(28, 24, 28, 20) };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 86));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 174));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-        Controls.Add(root);
-        var heading = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Margin = Padding.Empty };
-        heading.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 76));heading.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-        heading.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));heading.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        var picture = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, Margin = new Padding(0, 0, 16, 12) };
-        using(var stream=Bundle.Resource("icon128.png")) picture.Image=new Bitmap(stream);
-        heading.Controls.Add(picture,0,0);heading.SetRowSpan(picture,2);
-        heading.Controls.Add(new Label { Text="MKT ORGANIZER",Font=new Font("Segoe UI",22F,FontStyle.Bold),AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty },1,0);
-        heading.Controls.Add(new Label { Text="Instalação para Chrome e Opera GX · versão "+Bundle.Version,AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty },1,1);
-        root.Controls.Add(heading,0,0);
-        var destination=new TableLayoutPanel { Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty };
-        destination.RowStyles.Add(new RowStyle(SizeType.Absolute,28));destination.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-        destination.Controls.Add(new Label{Text="1. Salvar a extensão nos seus Documentos",AutoSize=true,Font=new Font(Font,FontStyle.Bold),Dock=DockStyle.Fill},0,0);
-        pathBox=new TextBox{Text=Bundle.DocumentsTarget,ReadOnly=true,Dock=DockStyle.Top,BackColor=Color.White,Margin=new Padding(0,4,0,0)};destination.Controls.Add(pathBox,0,1);root.Controls.Add(destination,0,1);
-        var installRow=new TableLayoutPanel { Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty };
-        installRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,260));installRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-        install=MakeButton("Instalar / atualizar arquivos",true);install.Click+=InstallClicked;
-        installRow.Controls.Add(install,0,0);
-        progress=new ProgressBar{Dock=DockStyle.Fill,Style=ProgressBarStyle.Continuous,Margin=new Padding(18,14,0,16)};installRow.Controls.Add(progress,1,0);root.Controls.Add(installRow,0,3);
-        automatic=new CheckBox{Text="Receber atualizações automáticas do GitHub a cada 30 minutos",Checked=true,AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};
-        root.Controls.Add(automatic,0,2);
-        var browserPanel=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=3,BackColor=Color.White,Padding=new Padding(14,12,14,10),Margin=new Padding(0,8,0,8)};
-        browserPanel.RowStyles.Add(new RowStyle(SizeType.Absolute,29));browserPanel.RowStyles.Add(new RowStyle(SizeType.Absolute,55));browserPanel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-        browserPanel.Controls.Add(new Label{Text="2. Ativar no navegador · somente na primeira instalação",Font=new Font(Font,FontStyle.Bold),AutoSize=true,Dock=DockStyle.Fill},0,0);
-        browserPanel.Controls.Add(new Label{Text="Ative o Modo de desenvolvedor → Carregar sem compactação.\nCole o caminho acima e selecione a pasta MKT ORGANIZER.",AutoSize=true,Dock=DockStyle.Fill},0,1);
-        var actions=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.LeftToRight,WrapContents=false,Margin=Padding.Empty};
-        chrome=MakeButton("Abrir Chrome",false);chrome.Width=150;chrome.Click+=(s,e)=>OpenBrowser(false);
-        opera=MakeButton("Abrir Opera GX",false);opera.Width=165;opera.Click+=(s,e)=>OpenBrowser(true);
-        copy=MakeButton("Copiar caminho",false);copy.Width=155;copy.Click+=(s,e)=>CopyPath();
-        folder=MakeButton("Abrir pasta",false);folder.Width=130;folder.Click+=(s,e)=>OpenFolder();
-        foreach(var button in new[]{chrome,opera,copy,folder}){button.Enabled=false;actions.Controls.Add(button);}
-        browserPanel.Controls.Add(actions,0,2);root.Controls.Add(browserPanel,0,4);
-        status=new Label{Text="Pronto para instalar. Não precisa executar como administrador.\nA ativação inicial é feita uma vez no navegador. As versões publicadas no GitHub chegam pelo atualizador.",AutoSize=true,Dock=DockStyle.Fill,Padding=new Padding(0,10,0,0)};root.Controls.Add(status,0,5);
-        root.Controls.Add(new Label{Text="Extensão por @andrz.wav · Atualizações: andresauloparacopias-blip/mktOrganizer",AutoSize=true,Dock=DockStyle.Fill,Font=new Font("Segoe UI",8.5F),ForeColor=Color.FromArgb(89,108,120)},0,6);
-        FormClosing+=(s,e)=>{if(busy)e.Cancel=true;};
+    public InstallerForm(){
+        Text="MKT ORGANIZER · Atualizar arquivos · "+Bundle.Version;Font=new Font("Segoe UI",10F);ForeColor=ink;BackColor=Color.FromArgb(246,249,251);
+        AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new Size(820,560);MinimumSize=new Size(760,580);StartPosition=FormStartPosition.CenterScreen;
+        using(var stream=Bundle.Resource("app.ico"))Icon=new Icon(stream);
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=8,Padding=new Padding(28,22,28,20)};root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+        foreach(int height in new[]{82,72,32,42,60})root.RowStyles.Add(new RowStyle(SizeType.Absolute,height));root.RowStyles.Add(new RowStyle(SizeType.Percent,100));root.RowStyles.Add(new RowStyle(SizeType.Absolute,48));root.RowStyles.Add(new RowStyle(SizeType.Absolute,24));Controls.Add(root);
+        var heading=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=2,Margin=Padding.Empty};heading.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,76));heading.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));heading.RowStyles.Add(new RowStyle(SizeType.Absolute,42));heading.RowStyles.Add(new RowStyle(SizeType.Absolute,30));
+        var logo=new PictureBox{Dock=DockStyle.Fill,SizeMode=PictureBoxSizeMode.Zoom,Margin=new Padding(0,0,16,12)};using(var stream=Bundle.Resource("icon128.png"))logo.Image=new Bitmap(stream);heading.Controls.Add(logo,0,0);heading.SetRowSpan(logo,2);
+        heading.Controls.Add(new Label{Text="MKT ORGANIZER",Font=new Font("Segoe UI",22F,FontStyle.Bold),AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty},1,0);heading.Controls.Add(new Label{Text="Baixar do GitHub e atualizar os arquivos",Dock=DockStyle.Fill,AutoSize=true,Margin=Padding.Empty},1,1);root.Controls.Add(heading,0,0);
+        var destination=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty};destination.RowStyles.Add(new RowStyle(SizeType.Absolute,28));destination.RowStyles.Add(new RowStyle(SizeType.Percent,100));destination.Controls.Add(new Label{Text="Pasta dos arquivos nos seus Documentos",Font=new Font(Font,FontStyle.Bold),Dock=DockStyle.Fill,AutoSize=true},0,0);destination.Controls.Add(new TextBox{Text=Bundle.DocumentsTarget,ReadOnly=true,Dock=DockStyle.Top,BackColor=Color.White,Margin=new Padding(0,4,0,0)},0,1);root.Controls.Add(destination,0,1);
+        version=new Label{Text=VersionText(),Dock=DockStyle.Fill,AutoSize=true};root.Controls.Add(version,0,2);
+        automatic=new CheckBox{Text="Verificar atualizações automaticamente a cada 30 minutos",Checked=true,AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};root.Controls.Add(automatic,0,3);
+        var actions=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty};actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,290));actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));update=Button("Baixar / atualizar do GitHub",true);update.Click+=UpdateClicked;progress=new ProgressBar{Dock=DockStyle.Fill,Margin=new Padding(18,14,0,16)};actions.Controls.Add(update,0,0);actions.Controls.Add(progress,1,0);root.Controls.Add(actions,0,4);
+        status=new Label{Text="Busca a publicação mais recente e atualiza esta pasta.\nMantém suas pastas, sinalizações e ajustes no navegador.\n\nNa primeira instalação, carregue a pasta no navegador. Depois disso, as versões publicadas chegam pelo atualizador.",Dock=DockStyle.Fill,AutoSize=true,Padding=new Padding(0,10,0,0)};root.Controls.Add(status,0,5);
+        var helpers=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=false};copy=Button("Copiar caminho",false);copy.Width=180;copy.Click+=(s,e)=>{try{Clipboard.SetText(Bundle.DocumentsTarget);status.Text="Caminho copiado. Selecione essa pasta no navegador na primeira instalação.";}catch(Exception error){status.Text=error.Message;}};folder=Button("Abrir pasta",false);folder.Width=160;folder.Click+=(s,e)=>{try{if(Directory.Exists(Bundle.DocumentsTarget))Process.Start("explorer.exe","\""+Bundle.DocumentsTarget+"\"");else status.Text="Clique em Baixar / atualizar para criar a pasta.";}catch(Exception error){status.Text=error.Message;}};helpers.Controls.Add(copy);helpers.Controls.Add(folder);root.Controls.Add(helpers,0,6);
+        root.Controls.Add(new Label{Text="Fonte: github.com/andresauloparacopias-blip/mktOrganizer · @andrz.wav",Dock=DockStyle.Fill,AutoSize=true,Font=new Font("Segoe UI",8.5F)},0,7);
+        FormClosing+=(s,e)=>{if(busy){e.Cancel=true;status.Text="Aguarde a conclusão da atualização para fechar esta janela.";}};
     }
-    Button MakeButton(string text,bool primary) {
-        var button=new Button{Text=text,Height=42,Dock=primary?DockStyle.Fill:DockStyle.None,Margin=new Padding(0,2,8,6),FlatStyle=FlatStyle.Flat,BackColor=primary?Teal:Color.FromArgb(237,244,247),ForeColor=primary?Color.White:Ink,UseVisualStyleBackColor=false,Cursor=Cursors.Hand};
-        button.FlatAppearance.BorderColor=primary?Teal:Color.FromArgb(181,202,213);button.FlatAppearance.BorderSize=1;
-        return button;
+    string VersionText(){try{string installed=AutoUpdater.ReadVersion(Bundle.DocumentsTarget);return installed=="0"?"Extensão ainda não salva nesta pasta.":"Versão dos arquivos nesta pasta: "+installed;}catch{return "A versão será conferida durante a atualização.";}}
+    Button Button(string text,bool primary){var result=new Button{Text=text,Height=42,Dock=primary?DockStyle.Fill:DockStyle.None,Margin=new Padding(0,2,8,6),FlatStyle=FlatStyle.Flat,BackColor=primary?teal:Color.FromArgb(237,244,247),ForeColor=primary?Color.White:ink,UseVisualStyleBackColor=false,Cursor=Cursors.Hand};result.FlatAppearance.BorderColor=primary?teal:Color.FromArgb(181,202,213);return result;}
+    async void UpdateClicked(object sender,EventArgs e){
+        busy=true;update.Enabled=false;automatic.Enabled=false;progress.Style=ProgressBarStyle.Marquee;status.Text="Consultando a versão mais recente no GitHub...";
+        try{
+            string result;bool fallback=false;
+            try{result=await AutoUpdater.PullLatest(Bundle.DocumentsTarget);}
+            catch(Exception error){
+                if(File.Exists(Path.Combine(Bundle.DocumentsTarget,"manifest.json")))throw;
+                fallback=true;result="GitHub indisponível: "+error.Message;
+            }
+            if(fallback){await System.Threading.Tasks.Task.Run(()=>Bundle.Install(Bundle.DocumentsTarget));result+="\nOs arquivos incluídos neste instalador ("+Bundle.Version+") foram salvos. A verificação automática tentará buscar versões novas depois.";}
+            string schedule;
+            try{if(automatic.Checked){await System.Threading.Tasks.Task.Run(()=>AutoUpdater.Configure(Bundle.DocumentsTarget));schedule="Verificação automática ativada (a cada 30 minutos).";}else{AutoUpdater.Disable();schedule="Verificação automática desativada.";}}catch(Exception error){schedule="Arquivos prontos, mas a verificação automática não foi ativada: "+error.Message;}
+            progress.Style=ProgressBarStyle.Continuous;progress.Value=100;version.Text=VersionText();status.Text=result+"\n"+schedule+"\nAtualize a página do MKTZap quando terminar de escrever.";
+        }catch(Exception error){progress.Style=ProgressBarStyle.Continuous;progress.Value=0;status.Text="Não foi possível buscar a atualização. Os arquivos existentes foram preservados.\n"+error.Message;}
+        finally{busy=false;update.Enabled=true;automatic.Enabled=true;}
     }
-    async void InstallClicked(object sender,EventArgs e) {
-        busy=true;install.Enabled=false;foreach(var button in new[]{chrome,opera,copy,folder})button.Enabled=false;
-        progress.Style=ProgressBarStyle.Marquee;status.Text="Preparando e verificando os arquivos...";
-        try {
-            bool enableUpdates=automatic.Checked;
-            string backup=await System.Threading.Tasks.Task.Run(()=>Bundle.Install(Bundle.DocumentsTarget));
-            string updateStatus;
-            try {
-                if(enableUpdates){await System.Threading.Tasks.Task.Run(()=>AutoUpdater.Configure(Bundle.DocumentsTarget));updateStatus="Atualizador automático ativado: verifica o GitHub a cada 30 minutos.";}
-                else {AutoUpdater.Disable();updateStatus="Atualização automática desativada.";}
-            } catch(Exception updateError){updateStatus="Arquivos instalados, mas o atualizador não foi ativado: "+updateError.Message;}
-            progress.Style=ProgressBarStyle.Continuous;progress.Value=100;
-            status.Text="Versão "+Bundle.Version+" salva nos seus Documentos.\n"+updateStatus+"\nNa primeira instalação, faça o passo 2. Depois, atualize a página do MKTZap.";
-            install.Text="Reinstalar arquivos";foreach(var button in new[]{chrome,opera,copy,folder})button.Enabled=true;
-        } catch(Exception error) {
-            progress.Style=ProgressBarStyle.Continuous;progress.Value=0;
-            status.Text="Não foi possível concluir. Seus arquivos anteriores foram preservados.\n"+error.Message;
-            MessageBox.Show(this,error.Message,"Não foi possível instalar",MessageBoxButtons.OK,MessageBoxIcon.Error);
-        } finally {busy=false;install.Enabled=true;}
-    }
-    void CopyPath(){try{Clipboard.SetText(Bundle.DocumentsTarget);status.Text="Caminho copiado. No navegador, use Carregar sem compactação e cole-o na seleção de pasta.";}catch(Exception e){MessageBox.Show(this,e.Message,"Copiar caminho");}}
-    void OpenFolder(){try{Process.Start("explorer.exe","\""+Bundle.DocumentsTarget+"\"");}catch(Exception e){MessageBox.Show(this,e.Message,"Abrir pasta");}}
-    public static string FindBrowser(bool operaGX) {
-        string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),program=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),x86=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-        var candidates=operaGX?new[]{Path.Combine(local,"Programs","Opera GX","launcher.exe"),Path.Combine(local,"Programs","Opera GX","opera.exe"),Path.Combine(program,"Opera GX","launcher.exe"),Path.Combine(x86,"Opera GX","launcher.exe")}:new[]{Path.Combine(program,"Google","Chrome","Application","chrome.exe"),Path.Combine(x86,"Google","Chrome","Application","chrome.exe"),Path.Combine(local,"Google","Chrome","Application","chrome.exe")};
-        foreach(string path in candidates)if(File.Exists(path))return path;
-        if(!operaGX) foreach(var hive in new[]{Registry.CurrentUser,Registry.LocalMachine})using(var key=hive.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe")){string value=key==null?null:key.GetValue(null) as string;if(value!=null&&File.Exists(value.Trim('"')))return value.Trim('"');}
-        return null;
-    }
-    void OpenBrowser(bool isOpera) {
-        try {
-            string browser=FindBrowser(isOpera),url=isOpera?"opera://extensions":"chrome://extensions/";
-            if(browser==null){Clipboard.SetText(url);MessageBox.Show(this,"Não encontrei o "+(isOpera?"Opera GX":"Chrome")+" nesta instalação. Abra o navegador e cole este endereço:\n\n"+url+"\n\nO endereço foi copiado.","Abrir extensões");return;}
-            Process.Start(new ProcessStartInfo(browser,url){UseShellExecute=true});
-            status.Text="No navegador: ative Modo de desenvolvedor → Carregar sem compactação. Use Copiar caminho para selecionar a pasta.";
-        }catch(Exception error){MessageBox.Show(this,error.Message,"Abrir navegador");}
-    }
-    public void RenderPreview(string path,bool installed) {
-        if(installed){progress.Value=100;status.Text="Arquivos da versão "+Bundle.Version+" salvos nos seus Documentos.\nAgora abra o navegador e faça a ativação do passo 2.";foreach(var button in new[]{chrome,opera,copy,folder})button.Enabled=true;}
-        StartPosition=FormStartPosition.Manual;Location=new Point(-30000,-30000);ShowInTaskbar=false;
-        Show();Application.DoEvents();PerformLayout();
-        using(var bitmap=new Bitmap(Width,Height)){DrawToBitmap(bitmap,new Rectangle(0,0,Width,Height));bitmap.Save(path);}
-        Hide();
-    }
+    public void RenderPreview(string path,bool installed){if(installed){progress.Value=100;status.Text="Arquivos atualizados do GitHub.\nVerificação automática ativada (a cada 30 minutos).\nAtualize a página do MKTZap quando terminar de escrever.";}StartPosition=FormStartPosition.Manual;Location=new Point(-30000,-30000);ShowInTaskbar=false;Show();Application.DoEvents();PerformLayout();using(var bitmap=new Bitmap(Width,Height)){DrawToBitmap(bitmap,new Rectangle(0,0,Width,Height));bitmap.Save(path);}Hide();}
 }
 
 internal static class Program {
