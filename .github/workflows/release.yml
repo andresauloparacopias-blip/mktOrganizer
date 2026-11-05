@@ -1,0 +1,38 @@
+name: Publicar MKT ORGANIZER
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'extension/**'
+      - 'installer/**'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mkt-organizer-release
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar os arquivos
+        shell: pwsh
+        run: ./installer/build.ps1
+      - name: Publicar a nova versão
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $version=(Get-Content extension/manifest.json -Raw | ConvertFrom-Json).version
+          $tag="v$version"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if($LASTEXITCODE -eq 0){Write-Host "A versão $version já está publicada. Incremente a versão antes de publicar mudanças.";exit 0}
+          gh release create $tag './dist/extension.zip' './dist/update.json' './dist/Instalar MKT ORGANIZER.exe' --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "MKT ORGANIZER $version" --notes 'Atualização do MKT ORGANIZER para Chrome e Opera GX. Instale o EXE uma vez para ativar a atualização automática. Pastas e sinalizações ficam no armazenamento local de cada navegador.' --latest
+          if($LASTEXITCODE -ne 0){throw 'Falha ao publicar a release'}

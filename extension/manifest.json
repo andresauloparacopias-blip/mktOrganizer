@@ -1,0 +1,74 @@
+{
+  "manifest_version": 3,
+  "name": "MKT ORGANIZER",
+  "version": "3.3.47",
+  "description": "Tema, pastas de clientes, sinalizações, arquivos e lembretes para o Mktzap.",
+  "author": "Extensão por @andrz.wav",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "offscreen",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://app3.mktzap.com.br/*",
+    "https://mktzap-media-storage-master.s3.amazonaws.com/channels_attachments/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://app3.mktzap.com.br/*"
+      ],
+      "css": [
+        "theme.css"
+      ],
+      "js": [
+        "early.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://app3.mktzap.com.br/*"
+      ],
+      "js": [
+        "page-bridge.js"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://app3.mktzap.com.br/*"
+      ],
+      "js": [
+        "vendor/mammoth.browser.min.js",
+        "vendor/xlsx.full.min.js",
+        "office-preview.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/profile.png",
+        "icons/icon48.png"
+      ],
+      "matches": [
+        "https://app3.mktzap.com.br/*"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
