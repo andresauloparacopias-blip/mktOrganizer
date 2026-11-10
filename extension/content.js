@@ -8,6 +8,7 @@
   let tab = "ajustes";
   let query = "";
   const uid = () => crypto.randomUUID();
+  const reportExtensionError = (area, error) => console.warn(`MKT ORGANIZER: falha em ${area}`, error);
   const safe = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const $ = selector => shadow.querySelector(selector);
   const $$ = selector => [...shadow.querySelectorAll(selector)];
@@ -80,12 +81,12 @@
     const themeButton = $(".mzo-theme-toggle");
     if (themeButton) { themeButton.textContent = state.settings.dark ? "☀" : "☾"; themeButton.title = state.settings.dark ? "Ativar tema claro" : "Ativar tema escuro"; }
   };
-  const flagLabelLimit = 20;
+  const flagLabelLimit = 60;
   const flagPalette = [["", "Sem cor"], ["#38bdf8", "Azul"], ["#a78bfa", "Roxo"], ["#fbbf24", "Amarelo"], ["#fb7185", "Rosa"], ["#4ade80", "Verde"]];
   const flagIcons = ["", "🚩", "⭐", "🔥", "⚡", "📌", "💰"];
   let flagPhone = "";
-  let onlyFlagged = false;
   let activeFolder = "";
+  let activeStatusFilter = "";
   let draggingKey = "";
   let dragStartOrder = [];
   let dragCommitted = false;
@@ -266,7 +267,9 @@
       folderButton.style.setProperty("--mzo-card-folder-color", folder?.color || "#7da5c3");
     }
     const hasFlag = !!(flag.icon || flag.color || flag.label);
-    card.classList.toggle("mzo-filter-hidden", !matchesTicketSearch(card,flag) || (onlyFlagged && !hasFlag) || !!(activeFolder && (activeFolder === "__unfiled__" ? !!folderId : folderId !== activeFolder)));
+    const statusFilterMatches = !activeStatusFilter || card.dataset.mzoVisualState === activeStatusFilter;
+    const folderFilterMatches = activeStatusFilter ? true : activeFolder ? folderId === activeFolder : !folderId;
+    card.classList.toggle("mzo-filter-hidden", !matchesTicketSearch(card,flag) || !folderFilterMatches || !statusFilterMatches);
     const button = card.querySelector(".mzo-flag-button");
     if (button) {
       const icon = flag.icon || "⚑";
@@ -286,6 +289,15 @@
       tag.title = tagText;
     }
     tag.hidden = !tag.textContent;
+    card.classList.add("mzo-card-ready");
+  }
+  function syncOrderButton() {
+    const button = document.querySelector(".mzo-order-toggle");
+    if (!button) return;
+    const custom = state.settings.customOrder === true;
+    button.textContent = custom ? "Ordem personalizada ✓" : "Sem resposta primeiro ✓";
+    button.setAttribute("aria-pressed", String(custom));
+    button.classList.toggle("active", custom);
   }
   const ticketSearchInputs=new WeakMap();
   let ticketSearchTerm='',ticketSearchLocal=false,ticketSearchInitialized=false;
@@ -634,43 +646,53 @@
     if(field && limit && field.title!==limit){field.title=limit;field.setAttribute('aria-description',limit);}
   }
   function scanTickets() {
-    installComposerLayout();
-    installFinalizationControl();
-    installTicketSearch();
-    installWorkspaceBar();
-    renderFolderShelf();
-    const workspace = document.querySelector(".mzo-workspace-bar");
-    workspace?.querySelector(".mzo-show-all")?.classList.toggle("active", !onlyFlagged);
-    workspace?.querySelector(".mzo-show-flags")?.classList.toggle("active", onlyFlagged);
-    installChatControls();
-    installProfileIcons();
-    markMetaWindowNotice();
-    repairQuotedMessages();
-    if (!scanTickets.lastContrast || Date.now() - scanTickets.lastContrast > 900) { repairMessageContrast(); scanTickets.lastContrast = Date.now(); }
+    const safeRun = (area, callback) => {
+      try { callback(); }
+      catch (error) { reportExtensionError(area, error); }
+    };
+    safeRun("layout do compositor", installComposerLayout);
+    safeRun("controle de finalização", installFinalizationControl);
+    safeRun("campo de pesquisa", installTicketSearch);
+    safeRun("barra de atendimentos", installWorkspaceBar);
+    safeRun("filtro de pastas", renderFolderShelf);
+    syncOrderButton();
+    safeRun("controles do chat", installChatControls);
+    safeRun("ícones de perfil", installProfileIcons);
+    safeRun("aviso de janela", markMetaWindowNotice);
+    safeRun("mensagens citadas", repairQuotedMessages);
+    if (!scanTickets.lastContrast || Date.now() - scanTickets.lastContrast > 900) safeRun("contraste das mensagens", () => { repairMessageContrast(); scanTickets.lastContrast = Date.now(); });
     const openChat = document.querySelector("#dlgChatModal.show, #dlgChatModal[style*='display: block']");
     for (const conversation of [openChat, document.querySelector('#historico')].filter(Boolean)) {
-      groupChatSenders(conversation);
-      autoOpenNativeMedia(conversation);
-      expandChatImages(conversation);
-      expandChatDocuments(conversation);
-      refreshBridgeImages(conversation);
+      safeRun("organização das mensagens", () => groupChatSenders(conversation));
+      safeRun("abertura automática de mídias", () => autoOpenNativeMedia(conversation));
+      safeRun("prévia de imagens", () => expandChatImages(conversation));
+      safeRun("prévia de documentos", () => expandChatDocuments(conversation));
+      safeRun("leitura dos anexos", () => refreshBridgeImages(conversation));
     }
     let contactsChanged = false;
     const cards = [...document.querySelectorAll(".attendance-card-container[data-test]")];
-    const statuses = cards.map(card => [card, ticketStatus(card)]);
+    const statuses = cards.map(card => {
+      try { return [card, ticketStatus(card)]; }
+      catch (error) { reportExtensionError("leitura do status", error); return [card, null]; }
+    });
+    const defaultOrder = new Map([...statuses]
+      .map(([card,status],index)=>({card,status,index,priority:status==="reply"?0:1}))
+      .sort((a,b)=>a.priority-b.priority || a.index-b.index)
+      .map((item,index)=>[item.card,String(index)]));
     for (const [card, status] of statuses) {
+      safeRun("atualização de atendimento", () => {
       const key = card.getAttribute("data-test") || "";
       const phone = displayTicketPhone(card) || card.querySelector(".contact .info-info")?.textContent?.match(/\b\d{10,13}\b/)?.[0] || card.textContent.match(/\b\d{10,13}\b/)?.[0] || "";
       if (!card.dataset.mzoKey) card.dataset.mzoKey = key;
       card.dataset.mzoPhone = phone;
       const rank = state.manualOrder.indexOf(key);
-      const order = state.settings.customOrder === false ? "" : String(rank < 0 ? 99999 : rank);
+      const order = state.settings.customOrder === true ? String(rank < 0 ? 99999 : rank) : defaultOrder.get(card) || "0";
       if (card.style.order !== order) card.style.order = order;
       if (phone && !state.contacts[`phone:${phone}`]) {
         state.contacts[`phone:${phone}`] = { name:card.querySelector(".card-info .name")?.textContent?.trim() || phone, status:"Novo", tags:"", priority:false, url:location.href };
         contactsChanged = true;
       }
-      if (card.querySelector(".mzo-flag-button")) { paintTicket(card, key, status); continue; }
+      if (card.querySelector(".mzo-flag-button")) { paintTicket(card, key, status); return; }
       const button = document.createElement("button");
       button.type = "button"; button.className = "mzo-flag-button"; button.setAttribute("aria-label", "Sinalizar este chat");
       button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); flagPhone = key; showFlagPicker(event.clientX, event.clientY); });
@@ -679,7 +701,7 @@
       const handle = document.createElement("button");
       handle.type = "button"; handle.className = "mzo-drag-handle"; handle.draggable = true; handle.title = "Arrastar para mudar a ordem"; handle.setAttribute("aria-label", "Arrastar atendimento"); handle.textContent = "⠿";
       handle.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); });
-      handle.addEventListener("dragstart", event => { if (state.settings.customOrder === false) { state.settings.customOrder = true; const sort = document.querySelector(".mzo-workspace-bar [aria-pressed]"); if (sort) { sort.textContent = "Ordem personalizada ✓"; sort.setAttribute("aria-pressed","true"); } save("settings"); scanTickets(); } draggingKey = key; dragStartOrder = [...state.manualOrder]; dragCommitted = false; dragMoved = false; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", key); event.dataTransfer.setDragImage(card, 90, 40); card.classList.add("mzo-dragging"); });
+      handle.addEventListener("dragstart", event => { if (state.settings.customOrder !== true) { state.settings.customOrder = true; syncOrderButton(); save("settings"); scanTickets(); } draggingKey = key; dragStartOrder = [...state.manualOrder]; dragCommitted = false; dragMoved = false; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", key); event.dataTransfer.setDragImage(card, 90, 40); card.classList.add("mzo-dragging"); });
       handle.addEventListener("dragend", async () => { if (!dragCommitted && dragMoved) await save("manualOrder"); else if (!dragCommitted) { state.manualOrder = dragStartOrder; scanTickets(); } draggingKey = ""; dragMoved = false; card.classList.remove("mzo-dragging"); document.querySelectorAll(".mzo-drop-target,.mzo-folder-drop").forEach(el => el.classList.remove("mzo-drop-target","mzo-folder-drop")); });
       card.addEventListener("dragover", event => {
         if (!draggingKey || draggingKey === key) return;
@@ -704,9 +726,10 @@
       folderButton.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); showCardFolderPicker(card, folderButton); });
       controls.insertBefore(folderButton, button);
       paintTicket(card, key, status);
+      });
     }
-    equalizeClosedCards(cards);
-    if (contactsChanged) save("contacts");
+    safeRun("alinhamento dos cartões", () => equalizeClosedCards(cards));
+    if (contactsChanged) save("contacts").catch(error => reportExtensionError("salvamento de contatos", error));
   }
   function showCardFolderPicker(card, button) {
     document.querySelector(".mzo-card-folder-picker")?.remove();
@@ -851,16 +874,22 @@
       }
     }
   }
-  const imagePattern = /\.(?:png|jpe?g|webp|gif|avif|bmp)(?:[?#]|$)/i;
+  const imagePattern = /\.(?:png|jpe?g|webp|gif|avif|bmp|tiff?|heic|heif|svg)(?:[?#]|$)/i;
   const audioPattern = /\.(?:mp3|m4a|aac|wav|ogg|opus|flac)(?:[?#]|$)/i;
+  const videoPattern = /\.(?:mp4|m4v|mov|webm|mkv|avi|3gp)(?:[?#]|$)/i;
   const filePattern = /\.[a-z0-9]{1,12}(?:[?#]|$)/i;
+  const originalFileName = value => {
+    if (typeof value !== 'string') return '';
+    let name = value.trim();
+    try { name = decodeURIComponent(name); } catch {}
+    return name.split(/[\\/]/).pop().replace(/[<>:"|?*\x00-\x1f]/g,'_').slice(0,180);
+  };
   function documentMarker(element) {
     const raw = element.getAttribute("ng-click") || "";
     if (!/\bdisplayFile\s*\(/i.test(raw) || !/\btype=document\b/i.test(raw)) return null;
     const url = raw.match(/\bfile=(https?:\/\/[^\s\]]+)/i)?.[1];
     if (!url) return null;
-    let name = raw.match(/\bname=([^\]]+)/i)?.[1]?.trim() || "Documento";
-    try { name = decodeURIComponent(name); } catch {}
+    let name = originalFileName(raw.match(/\bname=([^\]]+)/i)?.[1]) || "Documento";
     return {url,name,kind:"files"};
   }
   function documentFromLink(anchor) {
@@ -871,8 +900,7 @@
     const text=anchor.textContent.trim();
     const attachment=/^\s*Anexo\s*:/i.test(text) || anchor.hasAttribute('download');
     if(!attachment && !/\.(?:pdf|docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp|zip|rar|7z|cdr|ai|eps|psd|svg|dwg)(?:$|[?#])/i.test(url.href)) return null;
-    let name=anchor.getAttribute('download') || text.replace(/^Anexo\s*:\s*/i,'') || url.pathname.split('/').pop() || 'Documento';
-    try { name=decodeURIComponent(name); } catch {}
+    let name=originalFileName(anchor.getAttribute('download') || text.replace(/^Anexo\s*:\s*/i,'') || url.pathname.split('/').pop()) || 'Documento';
     return {url:url.href,name,kind:'files'};
   }
   const documentCards=new WeakMap();
@@ -899,8 +927,8 @@
       preview=document.createElement('iframe');preview.className='mzo-document-preview';preview.title=file.name;preview.loading='lazy';preview.src=file.url;
     } else if(/^(PNG|JPE?G|WEBP|GIF|AVIF|BMP|SVG)$/.test(extension)) {
       preview=document.createElement('img');preview.className='mzo-document-image';preview.alt=file.name;preview.loading='lazy';preview.src=file.url;
-    } else if(/^(MP4|WEBM|MOV|MP3|M4A|WAV|OGG|OPUS)$/.test(extension)) {
-      preview=document.createElement(/^(MP4|WEBM|MOV)$/.test(extension)?'video':'audio');preview.className='mzo-document-media';preview.controls=true;preview.preload='metadata';preview.src=file.url;
+    } else if(/^(MP4|WEBM|MOV|M4V|3GP|MPEG|MPG|MP3|M4A|AAC|WAV|OGG|OPUS|FLAC)$/.test(extension)) {
+      preview=document.createElement(/^(MP4|WEBM|MOV|M4V|3GP|MPEG|MPG)$/.test(extension)?'video':'audio');preview.className='mzo-document-media';preview.controls=true;preview.preload='metadata';preview.src=file.url;
     } else if(globalThis.mzoOfficePreview?.supported(extension)) {
       preview=document.createElement('span');preview.className='mzo-office-preview';
     } else {
@@ -936,7 +964,7 @@
   }
   function autoOpenNativeMedia(modal) {
     autoOpenNativeDocuments(modal);
-    const viewLabel = /(?:Visualizar\s+(?:(?:a|o)\s+)?(?:imagem|foto|áudio|audio)|(?:Carregar|Reproduzir|Ouvir)\s+(?:o\s+)?(?:áudio|audio))(?=\s|$|[.,:;!?])/i;
+    const viewLabel = /(?:Visualizar\s+(?:(?:a|o)\s+)?(?:imagem|foto|vídeo|video|áudio|audio)|(?:Carregar|Reproduzir|Ouvir)\s+(?:o\s+)?(?:vídeo|video|áudio|audio))(?=\s|$|[.,:;!?])/i;
     for (const bubble of modal.querySelectorAll(".bubble-container .bubble")) {
       if (!viewLabel.test(bubble.textContent || "")) continue;
       const candidates = [...bubble.querySelectorAll("a,button,[ng-click],[role='button']")]
@@ -974,11 +1002,11 @@
     for(const source of modal.querySelectorAll('.bubble [ng-click*="displayFile"],.bubble a[href]')) {
       if(!received(source)) continue;
       const file=documentCards.get(source)?.file || documentMarker(source) || (source.matches('a[href]') && documentFromLink(source));
-      if(file) sources.set(file.url,{url:file.url,name:file.name,kind:imagePattern.test(file.name) || imagePattern.test(file.url) ? 'images' : audioPattern.test(file.name) || audioPattern.test(file.url) ? 'audio' : 'files'});
+      if(file) sources.set(file.url,{url:file.url,name:originalFileName(file.name),kind:imagePattern.test(file.name) || imagePattern.test(file.url) ? 'images' : audioPattern.test(file.name) || audioPattern.test(file.url) ? 'audio' : videoPattern.test(file.name) || videoPattern.test(file.url) ? 'videos' : 'files'});
     }
     for (const control of modal.querySelectorAll(".bubble-container .bubble [ng-click*='displayFile']")) {
       const file = received(control) && documentMarker(control);
-      if (file) sources.set(file.url,file);
+      if (file) sources.set(file.url,{...file,name:originalFileName(file.name)});
     }
     for (const item of modal.querySelectorAll(".bubble :is(img, video, audio, source, iframe[src], a[href], [data-src], [data-url], [data-image-url])")) {
       if (!received(item)) continue;
@@ -989,11 +1017,12 @@
         try {
           const url = value.startsWith("data:") || value.startsWith("blob:") ? value : new URL(value, location.href).href;
           if (!/^(?:https?:\/\/|blob:|data:(?:image|video|audio|application)\/)/i.test(url) || !(item.matches("img,video,audio,source") || filePattern.test(url) || item.hasAttribute("download") || url.startsWith("data:"))) continue;
-          const name = item.getAttribute("download") || "";
+          const name = originalFileName(item.getAttribute("download") || item.getAttribute("title") || item.getAttribute("aria-label") || "");
           const kind = item.matches("img") || imagePattern.test(url) || imagePattern.test(name) || /^data:image\//i.test(url) ? "images"
-            : item.matches("audio") || !!item.closest("audio") || audioPattern.test(url) || audioPattern.test(name) || /^data:audio\//i.test(url) ? "audio" : "files";
+            : item.matches("audio") || !!item.closest("audio") || /audio/i.test(item.getAttribute("type") || "") || audioPattern.test(url) || audioPattern.test(name) || /^data:audio\//i.test(url) ? "audio"
+            : item.matches("video") || !!item.closest("video") || /video/i.test(item.getAttribute("type") || "") || videoPattern.test(url) || videoPattern.test(name) || /^data:video\//i.test(url) ? "videos" : "files";
           const previous = sources.get(url);
-          if (!previous || previous.kind === "files" && kind !== "files") sources.set(url,{url,name,kind});
+          if (!previous || !previous.name && name || previous.kind === "files" && kind !== "files") sources.set(url,{url,name:name || previous?.name || "",kind});
         } catch {}
       }
     }
@@ -1076,51 +1105,78 @@
   }
   async function downloadChatFiles(modal, button, category) {
     const reset = () => { button.textContent = "↓ Baixar arquivos ▾"; };
-    const categoryName = { files:"arquivos", images:"imagens", audio:"áudios", all:"itens" }[category] || "itens";
-    const emptyMessage = { files:"Nenhum arquivo encontrado", images:"Nenhuma imagem encontrada", audio:"Nenhum áudio encontrado", all:"Nenhum item encontrado" }[category] || "Nenhum item encontrado";
+    const categoryName = { files:"documentos", images:"imagens" }[category] || "itens";
+    const emptyMessage = { files:"Nenhum documento encontrado", images:"Nenhuma imagem encontrada" }[category] || "Nenhum item encontrado";
     clearTimeout(button._mzoResetTimer);
     button.disabled = true;
     button.textContent = `Procurando ${categoryName}…`;
+    try {
     const bridge = await requestBridgeImages(modal);
     const entries = new Map(chatFileSources(modal).map(item => [item.url,item]));
     for (const item of bridge.files || bridge.images || []) {
       if (typeof item.url !== "string" || item.incoming !== true) continue;
       const previous = entries.get(item.url);
-      const kind = ["files","images","audio"].includes(item.kind) ? item.kind : item.image ? "images" : audioPattern.test(item.url) || audioPattern.test(item.name || "") ? "audio" : previous?.kind || "files";
-      entries.set(item.url,{url:item.url,name:item.name || previous?.name || "",kind});
+      if (item.kind === "audio" || item.kind === "videos") continue;
+      const kind = item.image || item.kind === "images" ? "images" : previous?.kind === "images" ? "images" : "files";
+      entries.set(item.url,{url:item.url,name:originalFileName(item.name) || previous?.name || "",kind});
     }
-    const files = [...entries.values()].filter(item => category === "all" || item.kind === category);
-    const urls = files.map(item => item.url);
-    if (!urls.length) {
+    const files = [...entries.values()].filter(item => item.kind === category);
+    if (!files.length) {
       button.disabled = false;
       button.textContent = emptyMessage;
       button._mzoResetTimer = setTimeout(reset, 3500);
       return;
     }
-    const local = files.filter(item => item.url.startsWith("blob:"));
-    let localCount = 0;
-    for (const [index, item] of local.entries()) {
+    let count = 0, failed = 0, batch = [];
+    const sendBatch = items => new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage({type:"mzo-download-files",files:items}, response => {
+          const lastError = chrome.runtime.lastError;
+          if (lastError || !response) { failed += items.length; resolve(); return; }
+          count += Number(response.count) || 0;
+          failed += Number(response.failed) || 0;
+          resolve();
+        });
+      } catch { failed += items.length; resolve(); }
+    });
+    const flush = async () => {
+      if (!batch.length) return;
+      const current = batch;
+      batch = [];
+      await sendBatch(current);
+    };
+    button.textContent = `Baixando ${files.length} arquivo(s)…`;
+    for (const item of files) {
+      if (!item.url.startsWith("blob:")) {
+        batch.push(item);
+        if (batch.length >= 20) await flush();
+        continue;
+      }
+      await flush();
       try {
         const response = await fetch(item.url);
+        if (!response.ok) throw Error("Falha ao ler mídia local");
         const blob = await response.blob();
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
         const ext = blob.type.split("/")[1]?.split(";")[0]?.replace("jpeg","jpg")?.replace(/[^a-z0-9]/gi,"").slice(0,8) || "bin";
-        const supplied = item.name.split(/[\\/]/).pop().replace(/[<>:"|?*\x00-\x1f]/g,"_").slice(0,100);
-        link.download = supplied ? /\.[a-z0-9]{1,8}$/i.test(supplied) ? supplied : `${supplied}.${ext}` : `${item.kind === "images" ? "imagem" : item.kind === "audio" ? "audio" : "arquivo"}-${String(index + 1).padStart(3,"0")}.${ext}`;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(link.href), 10000);
-        localCount++;
-      } catch {}
+        const reader = new FileReader();
+        const dataUrl = await new Promise((resolve,reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(Error("Falha ao converter mídia local"));
+          reader.readAsDataURL(blob);
+        });
+        await sendBatch([{url:dataUrl,name:originalFileName(item.name) || `${item.kind === "images" ? "imagem" : "arquivo"}.${ext}`}]);
+      } catch { failed++; }
     }
-    button.disabled = true;
-    button.textContent = `Baixando ${urls.length} arquivo(s)…`;
-    chrome.runtime.sendMessage({ type:"mzo-download-files", files:files.filter(item => !item.url.startsWith("blob:")) }, response => {
+    await flush();
+    button.disabled = false;
+    button.textContent = failed ? `${count} baixado(s), ${failed} falhou(aram)` : `${count} download(s) iniciado(s)`;
+    button._mzoResetTimer = setTimeout(reset, 5000);
+    } catch (error) {
       button.disabled = false;
-      const count = (response?.count || 0) + localCount;
-      button.textContent = count ? `${count} download(s) iniciado(s)` : "Download indisponível";
-      button._mzoResetTimer = setTimeout(reset, 4500);
-    });
+      button.textContent = "Falha ao preparar downloads";
+      button._mzoResetTimer = setTimeout(reset, 5000);
+      reportExtensionError("download de arquivos", error);
+    }
   }
   function renderFolderShelf() {
     const dashboard = document.querySelector(".calls-dashboard");
@@ -1130,9 +1186,18 @@
       shelf = document.createElement("div"); shelf.className = "mzo-folder-shelf";
       dashboard.parentElement.insertBefore(shelf, dashboard);
       shelf.addEventListener("click", event => {
+        if (event.target.closest(".mzo-folder-create")) return;
         const chip = event.target.closest("[data-folder]");
         if (!chip) return;
-        activeFolder = chip.dataset.folder;
+        const selected = chip.dataset.folder;
+        activeStatusFilter = "";
+        activeFolder = activeFolder === selected ? "" : selected;
+        scanTickets();
+      });
+      shelf.addEventListener("change", event => {
+        if (!event.target.matches("[data-status-filter]")) return;
+        activeStatusFilter = event.target.value;
+        activeFolder = "";
         scanTickets();
       });
       shelf.addEventListener("dragover", event => {
@@ -1158,27 +1223,45 @@
         if (tab === "pastas") render();
       });
     }
-    const signature = JSON.stringify([activeFolder,state.folders]);
+    const signature = JSON.stringify([activeFolder,activeStatusFilter,state.folders]);
     if (shelf.dataset.signature === signature) return;
     shelf.dataset.signature = signature;
-    shelf.innerHTML = `<span class="mzo-folder-heading">Pastas</span><button type="button" data-folder="" class="${activeFolder?"":"active"}">Todos</button>${state.folders.map(folder=>`<button type="button" data-folder="${safe(folder.id)}" class="${activeFolder===folder.id?"active":""}" style="--mzo-folder-color:${safe(folder.color)}"><span class="mzo-folder-dot"></span>${safe(folder.name)}</button>`).join("")}<button type="button" class="mzo-folder-create">＋ Criar pasta</button>`;
+    shelf.innerHTML = `<span class="mzo-folder-heading">Pastas</span>${state.folders.map(folder=>`<button type="button" data-folder="${safe(folder.id)}" class="${activeFolder===folder.id?"active":""}" aria-pressed="${activeFolder===folder.id}" style="--mzo-folder-color:${safe(folder.color)}"><span class="mzo-folder-dot"></span>${safe(folder.name)}</button>`).join("")}<button type="button" class="mzo-folder-create">＋ Criar pasta</button><span class="mzo-folder-spacer" aria-hidden="true"></span><div class="mzo-status-controls"><label class="mzo-status-filter-label">Status<select data-status-filter aria-label="Filtrar atendimentos por status"><option value="" ${activeStatusFilter===""?"selected":""}>Todos os status</option><option value="reply" ${activeStatusFilter==="reply"?"selected":""}>Aguardando resposta</option><option value="progress" ${activeStatusFilter==="progress"?"selected":""}>Em atendimento</option><option value="closing" ${activeStatusFilter==="closing"?"selected":""}>Janela fechando</option><option value="closed" ${activeStatusFilter==="closed"?"selected":""}>Conversas fechadas</option></select></label><button type="button" class="mzo-refresh-attendances" aria-label="Atualizar atendimentos" title="Atualizar a fila na ordem padrão">↻</button></div>`;
     shelf.querySelector(".mzo-folder-create").addEventListener("click", () => { tab = "pastas"; $(".mzo-panel").classList.add("open"); render(); $("#mzo-folder-name")?.focus(); });
+    shelf.querySelector(".mzo-refresh-attendances").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.classList.add("is-refreshing");
+      button.title = "Atualizando atendimentos…";
+      state.settings.customOrder = false;
+      try {
+        await save("settings");
+        scanTickets();
+        button.title = "Atendimentos atualizados";
+      } catch (error) {
+        reportExtensionError("atualização da fila", error);
+        button.title = "Falha ao atualizar atendimentos";
+      } finally {
+        button.disabled = false;
+        button.classList.remove("is-refreshing");
+        setTimeout(() => { if (button.isConnected) button.title = "Atualizar a fila na ordem padrão"; }, 2000);
+      }
+    });
   }
   function installWorkspaceBar() {
     const dashboard = document.querySelector(".calls-dashboard");
     if (!dashboard || document.querySelector(".mzo-workspace-bar")) return;
     const bar = document.createElement("div");
     bar.className = "mzo-workspace-bar";
-    bar.innerHTML = `<div class="mzo-workspace-title">Central de atendimentos<small>Organize sua fila e acompanhe os próximos passos</small></div><button type="button" class="mzo-show-all active">Todos</button><button type="button" class="mzo-show-flags">⚑ Sinalizados</button><button type="button" class="mzo-view-toggle">☷ Visão em lista</button><button type="button" class="mzo-primary mzo-open-workspace">MKT ORGANIZER</button><button type="button" class="mzo-open-reminders" aria-label="Lembretes" title="Lembretes"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12a2 2 0 0 0 4 0"/></svg></button>`;
-    bar.querySelector(".mzo-show-all").addEventListener("click", () => { onlyFlagged = false; bar.querySelector(".mzo-show-all").classList.add("active"); bar.querySelector(".mzo-show-flags").classList.remove("active"); scanTickets(); });
-    bar.querySelector(".mzo-show-flags").addEventListener("click", () => { onlyFlagged = true; bar.querySelector(".mzo-show-flags").classList.add("active"); bar.querySelector(".mzo-show-all").classList.remove("active"); scanTickets(); });
+    bar.innerHTML = `<div class="mzo-workspace-title">Central de atendimentos<small>Organize sua fila e acompanhe os próximos passos</small></div><button type="button" class="mzo-view-toggle">☷ Visão em lista</button><button type="button" class="mzo-primary mzo-open-workspace">MKT ORGANIZER</button><button type="button" class="mzo-open-reminders" aria-label="Lembretes" title="Lembretes"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12a2 2 0 0 0 4 0"/></svg></button>`;
     bar.querySelector(".mzo-view-toggle").addEventListener("click", async () => { state.settings.localView = state.settings.localView === "list" ? "grid" : "list"; applySettings(); await save("settings"); });
     bar.querySelector(".mzo-open-workspace").addEventListener("click", () => { tab = "ajustes"; $(".mzo-panel").classList.add("open"); render(); });
     bar.querySelector(".mzo-open-reminders").addEventListener("click", () => { tab = "lembretes"; $(".mzo-panel").classList.add("open"); render(); });
-    const sort = document.createElement("button"); sort.type = "button";
-    const updateSort = () => { sort.textContent = state.settings.customOrder === false ? "Ordem padrão ✓" : "Ordem personalizada ✓"; sort.setAttribute("aria-pressed",String(state.settings.customOrder !== false)); };
-    sort.onclick = async () => { state.settings.customOrder = state.settings.customOrder === false; await save("settings"); updateSort(); scanTickets(); }; updateSort(); bar.insertBefore(sort,bar.querySelector(".mzo-open-workspace"));
+    const sort = document.createElement("button"); sort.type = "button"; sort.className = "mzo-order-toggle";
+    sort.onclick = async () => { state.settings.customOrder = state.settings.customOrder !== true; await save("settings"); syncOrderButton(); scanTickets(); };
+    bar.insertBefore(sort,bar.querySelector(".mzo-open-workspace"));
     dashboard.parentElement.insertBefore(bar, dashboard);
+    syncOrderButton();
     applySettings();
   }
   function currentConversation(modal) {
@@ -1260,7 +1343,7 @@
     if (header.querySelector(".mzo-chat-actions")) return;
     const actions = document.createElement("div");
     actions.className = "mzo-chat-actions";
-    actions.innerHTML = `<button type="button" class="mzo-chat-flag">⚑ Sinalizar</button><div class="mzo-download-wrap"><button type="button" class="mzo-chat-download" aria-haspopup="menu" aria-expanded="false">↓ Baixar arquivos ▾</button><div class="mzo-download-menu" role="menu" hidden><button type="button" role="menuitem" data-mzo-download="files">Arquivos</button><button type="button" role="menuitem" data-mzo-download="images">Imagens</button><button type="button" role="menuitem" data-mzo-download="audio">Áudios</button><button type="button" role="menuitem" data-mzo-download="all">Todos</button></div></div>`;
+    actions.innerHTML = `<button type="button" class="mzo-chat-flag">⚑ Sinalizar</button><div class="mzo-download-wrap"><button type="button" class="mzo-chat-download" aria-haspopup="menu" aria-expanded="false">↓ Baixar arquivos ▾</button><div class="mzo-download-menu" role="menu" hidden><button type="button" role="menuitem" data-mzo-download="images">Imagens</button><button type="button" role="menuitem" data-mzo-download="files">Documentos</button></div></div>`;
     actions.querySelector(".mzo-chat-flag").addEventListener("click", event => {
       event.preventDefault(); event.stopPropagation();
       const active = currentConversation(modal);
@@ -1285,7 +1368,11 @@
   const scheduleScan = () => {
     scanTimer ||= setTimeout(() => {
       scanTimer = null;
-      scanTickets();
+      try { scanTickets(); }
+      catch (error) {
+        reportExtensionError("atualização da tela", error);
+        scanTimer = setTimeout(() => { scanTimer = null; scheduleScan(); }, 1000);
+      }
     }, 120);
   };
   function selectFlagOption(picker, field, value) {
@@ -1533,18 +1620,35 @@
   window.addEventListener('resize',()=>document.querySelector('.mzo-emoji-picker')?.remove());
 
   let dragScrollY = null;
-  document.addEventListener("dragover", event => { if (draggingKey) dragScrollY = event.clientY; });
-  document.addEventListener("dragend", () => { dragScrollY = null; });
-  setInterval(() => {
+  let dragScrollFrame = 0;
+  const scrollWhileDragging = () => {
+    dragScrollFrame = 0;
     if (!draggingKey || dragScrollY === null) return;
     const amount = dragScrollY < 100 ? -18 : dragScrollY > innerHeight - 100 ? 18 : 0;
-    if (!amount) return;
+    if (amount) {
     let node = document.querySelector(".calls-dashboard");
     while (node && !(node.scrollHeight > node.clientHeight && /auto|scroll/.test(getComputedStyle(node).overflowY))) node = node.parentElement;
     (node || document.scrollingElement)?.scrollBy(0, amount);
-  }, 30);
+    }
+    if (amount) dragScrollFrame = requestAnimationFrame(scrollWhileDragging);
+  };
+  document.addEventListener("dragover", event => {
+    if (!draggingKey) return;
+    dragScrollY = event.clientY;
+    if (!dragScrollFrame) dragScrollFrame = requestAnimationFrame(scrollWhileDragging);
+  });
+  document.addEventListener("dragend", () => { dragScrollY = null; cancelAnimationFrame(dragScrollFrame); dragScrollFrame = 0; });
 
-  chrome.storage.local.get(defaults).then(async data => { state = { ...defaults, ...data }; applySettings(); detectCurrent(); render(); scanTickets(); document.documentElement.classList.remove("mzo-booting"); });
+  chrome.storage.local.get(defaults).then(async data => {
+    state = { ...defaults, ...data };
+    applySettings(); detectCurrent(); render();
+    try { scanTickets(); } catch (error) { reportExtensionError("primeira atualização", error); scheduleScan(); }
+    document.documentElement.classList.remove("mzo-booting");
+  }).catch(error => {
+    reportExtensionError("carregamento das preferências", error);
+    document.documentElement.classList.remove("mzo-booting");
+    scheduleScan();
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if(changes.flags){state.flags=changes.flags.newValue || {};scheduleScan();}
@@ -1587,6 +1691,9 @@
     childList:true, subtree:true, characterData:true, attributes:true,
     attributeFilter:["class", "style", "title", "aria-label", "data-mzo-service-state"]
   });
+  setInterval(() => {
+    if (!document.hidden && document.querySelector(".calls-dashboard")) scheduleScan();
+  }, 10000);
   let oldUrl = location.href;
   setInterval(() => { if (oldUrl !== location.href) { oldUrl = location.href; detectCurrent(); } }, 800);
   }

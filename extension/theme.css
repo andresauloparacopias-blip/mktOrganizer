@@ -32,6 +32,7 @@ html.mzo-dark .block-search .buttons-filter { flex:0 0 auto !important; float:no
 .mzo-workspace-bar .mzo-primary { background:#52ddc1; border-color:#52ddc1; color:#073b3d; }
 
 /* Attendance grid and cards. */
+html.mzo-enhanced .calls-dashboard .attendance-card-container:not(.mzo-card-ready) { visibility:hidden !important; }
 html.mzo-dark .calls-dashboard > .row:has(> .attendance-card-container.mkz-card) { gap:16px !important; margin:0 !important; align-items:stretch; }
 html.mzo-dark .attendance-card-container.mkz-card { flex:0 0 calc((100% - 32px)/3) !important; width:calc((100% - 32px)/3) !important; max-width:calc((100% - 32px)/3) !important; min-width:0 !important; padding:0 !important; margin:0 !important; }
 html.mzo-enhanced .changeView { display:none !important; }
@@ -70,8 +71,6 @@ html.mzo-dark.mzo-compact .attendance-card-container.mkz-card { flex-basis:calc(
 html.mzo-dark.mzo-compact .attendance-card-container .mkz-card { padding:13px !important; }
 @media(max-width:1450px){html.mzo-dark .attendance-card-container.mkz-card,html.mzo-dark.mzo-compact .attendance-card-container.mkz-card{flex-basis:calc((100% - 16px)/2) !important;width:calc((100% - 16px)/2) !important;max-width:calc((100% - 16px)/2) !important}}
 @media(max-width:850px){html.mzo-dark .attendance-card-container.mkz-card,html.mzo-dark.mzo-compact .attendance-card-container.mkz-card{flex-basis:100% !important;width:100% !important;max-width:100% !important}}
-@media(max-width:1450px){html.mzo-dark.mzo-grid-view .calls-dashboard > .row:has(> .attendance-card-container){grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
-@media(max-width:850px){html.mzo-dark.mzo-grid-view .calls-dashboard > .row:has(> .attendance-card-container){grid-template-columns:1fr !important}}
 
 html.mzo-dark #dlgChatModal #resizable-footer-field { display:grid !important; grid-template-columns:repeat(3,40px) minmax(0,1fr) 92px !important; gap:8px !important; align-items:center !important; position:relative !important; width:100% !important; margin:0 !important; padding:0 !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field > .input-msg { min-width:0 !important; width:auto !important; max-width:none !important; margin:0 !important; padding:0 !important; }
@@ -79,7 +78,6 @@ html.mzo-dark #dlgChatModal #resizable-footer-field > .send { width:92px !import
 html.mzo-dark #dlgChatModal #resizable-footer-field > .visible-mobile { display:none !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field > .rg-top { position:absolute !important; top:-9px !important; left:0 !important; right:0 !important; height:7px !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field :is(.fa-paperclip,.fa-microphone) { font-size:18px !important; line-height:1 !important; color:#fff !important; filter:none !important; }
-html.mzo-dark #dlgChatModal #resizable-footer-field .emoji-span i { display:none !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field .emoji-span::before { content:"☺"; display:block; color:#fff; font:700 23px/1 system-ui,sans-serif; }
 html.mzo-dark #dlgChatModal #resizable-footer-field .audioRecorder > div:first-child { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field .textarea-send-message { width:100% !important; min-height:80px !important; margin:0 !important; background:#101d2e !important; color:#fff !important; border:1px solid #647c94 !important; border-radius:10px !important; padding:12px !important; }
@@ -322,7 +320,6 @@ html.mzo-dark.mzo-light .modal:not(#dlgChatModal) :is(label,h4,h5,p,span,li,a) {
 html.mzo-dark.mzo-light #historico .modal-body :is(.alert,.list-group-item,.card),html.mzo-dark.mzo-light #historico .modal-body [class*="history"] { background:#f1f6fa !important; color:#173047 !important; border-color:#cbd9e5 !important; }
 html.mzo-dark.mzo-light #historico :is(.mkz-msg-area,.mkz-chat-area,.mkz-chat-container) { background:#f3f7fb !important; }
 html.mzo-dark.mzo-light #historico .left-bubble { background:#fff !important; color:#173047 !important; }
-html.mzo-dark.mzo-light #historico .right-bubble { background:#d8f2e9 !important; color:#173d34 !important; }
 
 /* Light palette: readable ink on every native surface. */
 html.mzo-dark.mzo-light { --mzo-bg:#edf3f7; --mzo-panel:#fff; --mzo-card:#fff; --mzo-line:#c9d8e3; --mzo-text:#173247; --mzo-muted:#516b7e; --mzo-accent:#0a8178; }
@@ -416,14 +413,25 @@ html.mzo-dark.mzo-light .btn-secondary { background:#285f7d !important; color:#f
 /* Folder shelf is a local view of clients; dropping a card changes its folder. */
 .mzo-folder-shelf { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:-8px 0 14px; padding:8px 10px; border:1px solid #30465e; border-radius:12px; background:#132238; color:#eaf3ff; }
 .mzo-folder-heading { font:750 12px/1.2 Inter,system-ui,sans-serif; margin-right:2px; }
+.mzo-folder-spacer { flex:1 1 auto; min-width:12px; }
 .mzo-folder-shelf button { display:inline-flex; align-items:center; gap:7px; min-height:34px; border:1px solid #435e77; border-radius:8px; padding:5px 10px; background:#20364e; color:#eff8ff; font:650 12px/1.2 Inter,system-ui,sans-serif; cursor:pointer; }
+.mzo-folder-shelf .mzo-status-controls { display:inline-flex; align-items:flex-end; gap:6px; flex:0 0 auto; }
+.mzo-folder-shelf .mzo-status-filter-label { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin:0; color:#d8e7f5; font:650 12px/1.2 Inter,system-ui,sans-serif; }
+.mzo-folder-shelf .mzo-status-filter-label select { height:34px; min-height:34px; max-width:190px; border:1px solid #435e77; border-radius:8px; padding:5px 9px; background:#20364e; color:#eff8ff; font:650 12px/1.2 Inter,system-ui,sans-serif; }
 .mzo-folder-shelf button.active,.mzo-folder-shelf button.mzo-folder-drop { border-color:#59dcc5; background:#285d68; box-shadow:0 0 0 2px #59dcc544; }
+.mzo-folder-shelf .mzo-refresh-attendances { display:grid; place-items:center; width:36px; min-width:36px; height:34px; min-height:34px; padding:3px; margin:0 0 0 0; border-color:#328c83; background:#176d66; color:#fff; font:26px/1 system-ui,sans-serif; }
+.mzo-folder-shelf .mzo-refresh-attendances.is-refreshing { animation:mzo-refresh-spin .8s linear infinite; }
+.mzo-folder-shelf .mzo-refresh-attendances:disabled { opacity:.65; cursor:wait; }
+@keyframes mzo-refresh-spin { to { transform:rotate(360deg); } }
 .mzo-folder-dot { display:inline-block; width:11px; height:11px; flex:0 0 11px; border-radius:50%; background:var(--mzo-folder-color,#55d9c3); box-shadow:0 0 0 2px #ffffff33; vertical-align:middle; margin-right:4px; }
 .mzo-folder-color-input { height:42px; padding:3px; cursor:pointer; }
 .mzo-folder-item { border-left:4px solid var(--mzo-folder-color,#55d9c3); }
 html.mzo-dark.mzo-light .mzo-folder-shelf { background:#fff; color:#193c52; border-color:#cbdbe5; }
 html.mzo-dark.mzo-light .mzo-folder-shelf button { background:#edf4f8; color:#1e4055; border-color:#b7ccda; }
+html.mzo-dark.mzo-light .mzo-folder-shelf .mzo-status-filter-label { color:#24465b; }
+html.mzo-dark.mzo-light .mzo-folder-shelf .mzo-status-filter-label select { background:#edf4f8; color:#1e4055; border-color:#b7ccda; }
 html.mzo-dark.mzo-light .mzo-folder-shelf button.active,html.mzo-dark.mzo-light .mzo-folder-shelf button.mzo-folder-drop { background:#d8f1ec; border-color:#31ab96; }
+html.mzo-dark.mzo-light .mzo-folder-shelf .mzo-refresh-attendances { background:#087f72; color:#fff; border-color:#087f72; }
 
 /* Native message composer: keep all three controls in identical slots. */
 html.mzo-dark #dlgChatModal #resizable-footer-field .emoji-span::before { line-height:1 !important; margin:0 !important; }
@@ -441,7 +449,6 @@ html.mzo-dark.mzo-light #dlgChatModal .mzo-document-details small { color:#47677
 
 /* Uploaded image/file previews add native children to the composer row. Give each control a stable grid slot. */
 html.mzo-dark #dlgChatModal #resizable-footer-field { grid-template-rows:max-content minmax(80px,1fr) !important; align-content:stretch !important; }
-html.mzo-dark #dlgChatModal #resizable-footer-field > .attachment { grid-column:1 !important; grid-row:2 !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field > .mic { grid-column:2 !important; grid-row:2 !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field > .emoji { grid-column:3 !important; grid-row:2 !important; }
 html.mzo-dark #dlgChatModal #resizable-footer-field > .input-msg { grid-column:4 !important; grid-row:2 !important; min-width:0 !important; }
@@ -585,9 +592,6 @@ html.mzo-dark .attendance-card-container .mkz-card-container:has(.mzo-ticket-sta
   flex-direction:column !important;
   background:#142131 !important;
   border-radius:16px !important;
-}
-html.mzo-dark.mzo-light .attendance-card-container .mkz-card-container:has(.mzo-ticket-status) {
-  background:#fff !important;
 }
 html.mzo-dark .attendance-card-container .mkz-card-container:has(.mzo-ticket-status) > .mkz-card {
   height:auto !important;
@@ -1412,9 +1416,6 @@ html.mzo-dark #dlgChatModal #resizable-footer-field > .input-msg {
   position:relative !important; align-self:stretch !important; height:100% !important;
   min-height:0 !important; box-sizing:border-box !important; padding:0 0 16px !important;
 }
-html.mzo-dark #dlgChatModal #resizable-footer-field > .input-msg form {
-  display:flex !important; position:static !important; height:100% !important; min-height:0 !important;
-}
 html.mzo-dark #dlgChatModal #resizable-footer-field .textarea-send-message {
   position:static !important; flex:1 1 auto !important; height:100% !important;
   min-height:0 !important; max-height:none !important; resize:none !important;
@@ -1889,3 +1890,50 @@ html.mzo-dark .select2-drop.status-finalization-chat .select2-search .select2-in
   outline:2px solid var(--mzo-finalize-menu-active) !important; outline-offset:2px !important;
 }
 html.mzo-dark:not(.mzo-light) .select2-drop.status-finalization-chat .select2-search::after { filter:brightness(0) invert(1); }
+
+/* New-message dialog also opens outside the chat overlay workflow. */
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp .modal-content {
+  background:#17283b !important; color:#edf5ff !important; border:1px solid #496478 !important;
+}
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp :is(.modal-header,.modal-body,.modal-footer) {
+  background:#17283b !important; color:#edf5ff !important; border-color:#496478 !important;
+}
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp :is(h1,h2,h3,h4,h5,label,p,small,span,strong,.control-label) {
+  color:#e5eff9 !important; -webkit-text-fill-color:currentColor !important;
+}
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp :is(input:not([type=checkbox]):not([type=radio]),select,textarea,.form-control) {
+  background:#101d2e !important; color:#f2f8ff !important; border:1px solid #5d748b !important;
+  -webkit-text-fill-color:#f2f8ff !important; color-scheme:dark;
+}
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp :is(input,textarea)::placeholder { color:#aebfd2 !important; opacity:1 !important; }
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp :is(select option) { background:#17283b !important; color:#f2f8ff !important; }
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp :is(.alert,.alert-info,.well,.help-block,.form-text) {
+  background:#20364d !important; color:#d8e8f7 !important; border-color:#46627b !important;
+}
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp :is(.modal-footer .btn-default,.modal-footer .btn-secondary) {
+  background:#263e55 !important; color:#edf6ff !important; border-color:#607991 !important;
+}
+html.mzo-dark:not(.mzo-light) #dlgActiveWhatsapp .modal-footer .btn-primary {
+  background:#167b70 !important; color:#fff !important; border-color:#42c9b4 !important;
+}
+html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(.modal-content,.modal-header,.modal-body,.modal-footer) {
+  background:#fff !important; color:#173247 !important; border-color:#cbd9e5 !important;
+}
+html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(h1,h2,h3,h4,h5,label,p,small,span,strong,.control-label) {
+  color:#29465d !important; -webkit-text-fill-color:currentColor !important;
+}
+html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(input:not([type=checkbox]):not([type=radio]),select,textarea,.form-control) {
+  background:#f5f8fb !important; color:#173247 !important; border-color:#a9bdce !important;
+  -webkit-text-fill-color:#173247 !important; color-scheme:light;
+}
+html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(input,textarea)::placeholder { color:#687f92 !important; }
+html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(select option) { background:#fff !important; color:#173247 !important; }
+html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(.alert,.alert-info,.well,.help-block,.form-text) {
+  background:#e9f2f7 !important; color:#34566c !important; border-color:#c7d9e5 !important;
+}
+html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(.modal-footer .btn-default,.modal-footer .btn-secondary) {
+  background:#e8f1f5 !important; color:#24465b !important; border-color:#b8cdda !important;
+}
+html.mzo-dark.mzo-light #dlgActiveWhatsapp .modal-footer .btn-primary {
+  background:#087f72 !important; color:#fff !important; border-color:#087f72 !important;
+}

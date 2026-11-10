@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MKT ORGANIZER",
-  "version": "3.3.48",
+  "version": "3.3.63",
   "description": "Tema, pastas de clientes, sinalizações, arquivos e lembretes para o Mktzap.",
   "author": "Extensão por @andrz.wav",
   "permissions": [

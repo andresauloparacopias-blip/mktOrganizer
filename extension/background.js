@@ -1,5 +1,6 @@
 const PREFIX = "mzo-reminder-";
 let openingOffscreen;
+let alarmSyncQueue = Promise.resolve();
 
 async function playTone(tone, id = "preview", repeat = false) {
   if (!tone || tone === "nenhum" || !chrome.offscreen?.createDocument) return;
@@ -37,8 +38,12 @@ async function syncAlarms() {
     }
   }
 }
+function scheduleAlarmSync() {
+  alarmSyncQueue = alarmSyncQueue.catch(() => {}).then(syncAlarms);
+  return alarmSyncQueue;
+}
 
-chrome.runtime.onInstalled.addListener(syncAlarms);
+chrome.runtime.onInstalled.addListener(() => { scheduleAlarmSync().catch(error => console.warn("MKT ORGANIZER: falha ao sincronizar lembretes", error)); });
 chrome.runtime.onStartup.addListener(async () => {
   const { reminders = [] } = await chrome.storage.local.get("reminders");
   let changed = false;
@@ -49,10 +54,10 @@ chrome.runtime.onStartup.addListener(async () => {
     }
   }
   if (changed) await chrome.storage.local.set({ reminders });
-  await syncAlarms();
+  await scheduleAlarmSync();
 });
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.reminders) syncAlarms();
+  if (area === "local" && changes.reminders) scheduleAlarmSync().catch(error => console.warn("MKT ORGANIZER: falha ao sincronizar lembretes", error));
 });
 
 chrome.alarms.onAlarm.addListener(async alarm => {
@@ -80,23 +85,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "mzo-stop-tone") stopTone(message.id);
   if (message?.type === "mzo-download-files") {
     (async () => {
-      let count = 0;
+      let count = 0, failed = 0;
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      for (const [index, file] of (message.files || message.urls || []).slice(0, 250).entries()) {
-        const url = typeof file === "string" ? file : file?.url;
-        if (typeof url !== "string" || !/^(https?:\/\/|data:(?:image|video|audio|application)\/)/i.test(url)) continue;
-        const extension = url.match(/\.([a-z0-9]{1,12})(?:[?#]|$)/i)?.[1]?.toLowerCase()
-          || url.match(/^data:[^/]+\/([a-z0-9+.-]+)/i)?.[1]?.replace("jpeg", "jpg").replace("vnd.openxmlformats-officedocument.wordprocessingml.document", "docx") || "bin";
-        const supplied = typeof file === "object" && typeof file?.name === "string"
-          ? file.name.split(/[\\/]/).pop().replace(/[<>:"|?*\x00-\x1f]/g,"_").slice(0,100)
-          : "";
-        const base = supplied ? (/\.[a-z0-9]{1,12}$/i.test(supplied) ? supplied : `${supplied}.${extension}`) : `arquivo.${extension}`;
-        const filename = `Mktzap-arquivos/${stamp}/${String(index + 1).padStart(3,"0")}-${base}`;
-        const downloaded = await new Promise(resolve => chrome.downloads.download({ url, filename, conflictAction:"uniquify" }, id => resolve(chrome.runtime.lastError ? false : !!id)));
-        if (downloaded) count++;
-      }
-      sendResponse({ count });
-    })().catch(() => sendResponse({ count:0 }));
+      const files = (message.files || message.urls || []).slice(0, 5000);
+      let next = 0;
+      const downloadNext = async () => {
+        while (next < files.length) {
+          const file = files[next++];
+          const url = typeof file === "string" ? file : file?.url;
+          if (typeof url !== "string" || !/^(https?:\/\/|data:(?:image|video|audio|application)\/)/i.test(url)) { failed++; continue; }
+          const extension = url.match(/\.([a-z0-9]{1,12})(?:[?#]|$)/i)?.[1]?.toLowerCase()
+            || url.match(/^data:[^/]+\/([a-z0-9+.-]+)/i)?.[1]?.replace("jpeg", "jpg").replace("vnd.openxmlformats-officedocument.wordprocessingml.document", "docx") || "bin";
+          let supplied = typeof file === "object" && typeof file?.name === "string" ? file.name.trim() : "";
+          try { supplied = decodeURIComponent(supplied); } catch {}
+          supplied = supplied.split(/[\\/]/).pop().replace(/[<>:"|?*\x00-\x1f]/g,"_").replace(/[. ]+$/g,"").slice(0,180);
+          const filename = `Mktzap-arquivos/${stamp}/${supplied || `arquivo.${extension}`}`;
+          let downloaded = false;
+          try { downloaded = await new Promise(resolve => chrome.downloads.download({ url, filename, conflictAction:"uniquify" }, id => resolve(!chrome.runtime.lastError && !!id))); } catch {}
+          if (downloaded) count++; else failed++;
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(4,files.length)}, downloadNext));
+      sendResponse({ count, failed, total:files.length });
+    })().catch(() => sendResponse({ count:0, failed:(message.files || message.urls || []).length, total:(message.files || message.urls || []).length }));
     return true;
   }
 });

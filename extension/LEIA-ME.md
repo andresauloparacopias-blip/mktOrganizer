@@ -1,4 +1,4 @@
-# MKT ORGANIZER 3.3.48
+# MKT ORGANIZER 3.3.63
 
 Extensão por @andrz.wav
 
@@ -16,20 +16,20 @@ Para instalar pela primeira vez, ative **Modo de desenvolvedor** em `opera:exten
 
 Clique em **Baixar arquivos ▾** e escolha:
 
-- **Arquivos:** documentos e outros anexos, incluindo vídeos e ZIPs.
 - **Imagens:** fotos e imagens.
-- **Áudios:** gravações e arquivos de som.
-- **Todos:** todas as categorias.
+- **Documentos:** documentos e outros anexos, incluindo vídeos, áudios e ZIPs.
 
-O menu só inicia o download depois que você escolhe uma categoria. A extensão encontra os itens presentes no histórico carregado da conversa, inclusive documentos cujo endereço não tem extensão (como arquivos Corel), quando o Mktzap informa o nome original. Ao abrir a conversa, o documento aparece com nome e botão **Abrir**. Formatos que o navegador não visualiza, como CDR, abrem no aplicativo associado ao arquivo. O controle nativo **Carregar o documento** não é acionado automaticamente, para evitar downloads inesperados.
+O menu só inicia o download depois que você escolhe uma categoria. Para incluir o histórico inteiro, abra a conversa e carregue as mensagens antigas no Mktzap antes de baixar; a extensão coleta os anexos que o aplicativo carregou nessa conversa. Documentos cujo endereço não tem extensão (como arquivos Corel) mantêm o nome original informado pelo Mktzap. Os arquivos são salvos com o nome original, acrescentando apenas um sufixo quando já existe outro arquivo de mesmo nome. Ao abrir a conversa, o documento aparece com nome e botão **Abrir**. Formatos que o navegador não visualiza, como CDR, abrem no aplicativo associado ao arquivo. O controle nativo **Carregar o documento** não é acionado automaticamente, para evitar downloads inesperados. O menu informa quantos downloads foram iniciados e quantos falharam.
 
 ## Pastas de clientes
 
-Abra **MKT ORGANIZER → Pastas**, informe nome e cor e clique em **Criar pasta**. Arraste o cartão do cliente pela alça **⠿** até a pasta na barra acima da lista. Clique no nome da pasta para mostrar somente seus clientes; **Todos** mostra a lista completa, soltar um cartão em **Todos** remove a atribuição. As pastas ficam no armazenamento local do Opera GX e entram no backup exportado em **Ajustes**.
+Abra **MKT ORGANIZER → Pastas**, informe nome e cor e clique em **Criar pasta**. Arraste o cartão do cliente pela alça **⠿** até a pasta na barra acima da lista. Sem pasta selecionada, a fila mostra somente clientes sem atribuição. Clique numa pasta para ver apenas os clientes dela; clique nela novamente para voltar aos sem pasta. As pastas ficam no armazenamento local do Opera GX e entram no backup exportado em **Ajustes**.
+
+Use o filtro **Status** na barra para ver somente atendimentos aguardando resposta, em atendimento, com janela fechando ou já fechados.
 
 As sinalizações ficam no armazenamento local do navegador. Exporte um backup em **Organização → Ajustes** antes de remover a extensão.
 
-Downloads incluem apenas anexos recebidos do cliente, excluindo citações e mensagens enviadas. Organize clientes arrastando os cartões para uma pasta na barra de pastas. A ordem pode alternar entre personalizada e sem resposta primeiro.
+Downloads incluem apenas anexos recebidos do cliente, excluindo citações e mensagens enviadas. Organize clientes arrastando os cartões para uma pasta na barra de pastas. A fila inicia em **Sem resposta primeiro**; use o botão de ordem para alternar com a ordem personalizada. Arrastar um cartão também ativa a ordem personalizada.
 
 
 As etiquetas do chat aberto usam a cor definida na sinalização.

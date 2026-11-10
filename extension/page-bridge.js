@@ -1,8 +1,9 @@
 // Runs in the page's JavaScript world to read the currently open Angular chat.
 // Only media URLs, contact photo URLs and message identifiers are returned.
 (() => {
-  const imageExtension = /\.(?:png|jpe?g|webp|gif|avif|bmp)(?:[?#]|$)/i;
+  const imageExtension = /\.(?:png|jpe?g|webp|gif|avif|bmp|tiff?|heic|heif|svg)(?:[?#]|$)/i;
   const audioExtension = /\.(?:mp3|m4a|aac|wav|ogg|opus|flac)(?:[?#]|$)/i;
+  const videoExtension = /\.(?:mp4|m4v|mov|webm|mkv|avi|3gp)(?:[?#]|$)/i;
   const mediaExtension = /\.[a-z0-9]{1,12}(?:[?#]|$)/i;
   const possibleUrl = /^(?:https?:\/\/|blob:|data:(?:image|video|audio|application)\/|\/)/i;
   const imageType = value => /image|photo|picture|figura|foto/i.test(String(value || ""));
@@ -40,7 +41,7 @@
         const embeddedFile = value.match(/\bfile=(https?:\/\/[^\s\]]+)/i)?.[1];
         if (embeddedFile) { const found = safeUrl(embeddedFile); if (found) urls.add(found); }
         const url = safeUrl(value);
-        if (url && (force || meta || mediaExtension.test(url) || /^data:(?:image|video|audio|application)\//i.test(url) || mediaType(key))) urls.add(url);
+        if (url && (force || meta || mediaExtension.test(url) || /^data:(?:image|video|audio|application)\//i.test(url) || mediaType(key) || /^https?:\/\/|^blob:/i.test(url))) urls.add(url);
         return;
       }
       if (typeof value !== "object" || visited.has(value)) return;
@@ -54,11 +55,26 @@
     walk(message, "", 0);
     return [...urls];
   }
-  const fileName = message => [message?.filename,message?.file_name,message?.original_name,message?.media?.filename,message?.media?.name,message?.file?.name,message?.attachment?.name,message?.document?.name,message?.text?.match(/\bname=([^\]]+)/i)?.[1]].find(value => typeof value === "string" && value.trim()) || "";
+  const fileName = message => {
+    const raw = [message?.filename,message?.file_name,message?.original_name,message?.originalName,message?.media?.filename,message?.media?.original_name,message?.media?.name,message?.file?.name,message?.file?.filename,message?.attachment?.name,message?.attachment?.filename,message?.document?.name,message?.document?.filename,message?.text?.match(/\bname=([^\]]+)/i)?.[1]].find(value => typeof value === "string" && value.trim()) || "";
+    try { return decodeURIComponent(raw).trim(); } catch { return raw.trim(); }
+  };
+  const directionOf = (message, vm) => {
+    try {
+      const value = vm?.getClass?.(message) || message?.direction || message?.type_message || "";
+      if (/^(?:left|in|incoming|inbound|received)$/i.test(value)) return "left";
+      if (/^(?:right|out|outgoing|outbound|sent)$/i.test(value)) return "right";
+    } catch {}
+    const fromMe = message?.from_me ?? message?.fromMe ?? message?.key?.fromMe;
+    if (fromMe !== undefined) return fromMe === true || fromMe === 1 || fromMe === "1" || fromMe === "true" ? "right" : "left";
+    return "";
+  };
   const kindOf = (message, url, image) => {
     if (image) return "images";
     const details = [message?.type,message?.mime,message?.mimetype,message?.mimeType,message?.contentType,message?.media?.type,message?.media?.mimetype,fileName(message)].join(" ");
-    return /audio|voice|ptt|recording/i.test(details) || audioExtension.test(url) || /^data:audio\//i.test(url) ? "audio" : "files";
+    if (/audio|voice|ptt|recording/i.test(details) || audioExtension.test(url) || /^data:audio\//i.test(url)) return "audio";
+    if (/video/i.test(details) || videoExtension.test(url) || /^data:video\//i.test(url)) return "videos";
+    return "files";
   };
   function avatarFrom(contact) {
     if (!contact || typeof contact !== "object") return "";
@@ -81,6 +97,7 @@
     if (event.source !== window || event.origin !== location.origin || event.data?.source !== "mzo-image-request") return;
     const requestId = event.data.requestId;
     if (typeof requestId !== "string") return;
+    try {
     const modal = event.data.modalId === "historico" ? document.getElementById("historico") : document.querySelector("#dlgChatModal.show, #dlgChatModal[style*='display: block']");
     const scope = modal && scopeOf(modal);
     const vm = scope?.vm;
@@ -89,9 +106,10 @@
     const files = Array.isArray(messages)
       ? messages.flatMap((message, index) => urlsFromMessage(message).map(url => {
         const image = imageExtension.test(url) || [message.type,message.mime,message.mimetype,message.media?.type,message.media?.mimetype].some(imageType) || url.startsWith("data:image/");
-        return { incoming:vm.getClass?.(message) === "left", index, url, name:fileName(message), id:String(message.id || message.wamid || message.message_id || ""), image, kind:kindOf(message,url,image) };
+        return { incoming:directionOf(message,vm) === "left", index, url, name:fileName(message), id:String(message.id || message.wamid || message.message_id || ""), image, kind:kindOf(message,url,image) };
       }))
       : [];
+    const messageIndex = new Map(files.filter(item=>item.id).map(item=>[item.id,item]));
     const bubbles = modal ? [...modal.querySelectorAll(".bubble:not(.mkz-input-area .bubble)")] : [];
     bubbles.forEach((bubble,index) => {
       let itemScope = scopeFor(bubble);
@@ -100,9 +118,11 @@
         if (itemScope.message) { message=itemScope.message; break; }
       }
       message ||= Array.isArray(messages) && messages.length === bubbles.length ? messages[index] : null;
-      for (const url of urlsFromMessage(message,/Visualizar a imagem/i.test(bubble.textContent || ""))) {
+      const id = String(message?.id || message?.wamid || message?.message_id || bubble.getAttribute('select-id') || '');
+      const known = messageIndex.get(id);
+      for (const url of urlsFromMessage(message,/Visualizar a (?:imagem|vídeo|video)/i.test(bubble.textContent || ""))) {
         const image = imageExtension.test(url) || url.startsWith("data:image/") || [message?.type,message?.mime,message?.mimetype,message?.media?.type].some(imageType) || (/Visualizar a imagem/i.test(bubble.textContent || "") && !mediaExtension.test(url));
-        files.push({incoming:bubble.classList.contains("left-bubble"),index,url,name:fileName(message),id:String(message?.id || message?.wamid || message?.message_id || ""),image,kind:kindOf(message,url,image)});
+        files.push({incoming:bubble.classList.contains("left-bubble") || known?.incoming === true,index,url,name:fileName(message) || known?.name || "",id,image,kind:kindOf(message,url,image)});
       }
     });
     const images = files.filter(item => item.image);
@@ -111,7 +131,13 @@
       return { index, url:avatarFrom(local?.contact || local?.item || local?.ticket) };
     }).filter(item => item.url);
     const avatar = avatarFrom(vm?.selectedUser?.[vm.sector_id]);
-    window.postMessage({ source:"mzo-image-bridge", requestId, total:bubbles.length, images:images.slice(0,500), files:files.slice(0,500), avatar, cards }, location.origin);
+    const uniqueFiles = [...new Map(files.map(item=>[item.url,item])).values()];
+    const uniqueImages = uniqueFiles.filter(item=>item.image);
+    window.postMessage({ source:"mzo-image-bridge", requestId, total:bubbles.length, images:uniqueImages.slice(0,5000), files:uniqueFiles.slice(0,5000), avatar, cards }, location.origin);
+    } catch (error) {
+      console.warn("MKT ORGANIZER: falha ao ler anexos da conversa", error);
+      window.postMessage({ source:"mzo-image-bridge", requestId, total:0, images:[], files:[] }, location.origin);
+    }
   });
 })();
 
@@ -223,7 +249,28 @@
     }
   }
   refreshServiceStates();
-  setInterval(refreshServiceStates, 800);
+  let refreshTimer;
+  const scheduleRefresh = () => {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      if (!document.hidden) refreshServiceStates();
+    }, 120);
+  };
+  const serviceObserver = new MutationObserver(records => {
+    if (records.some(record => {
+      const target = record.target.nodeType === Node.ELEMENT_NODE ? record.target : record.target.parentElement;
+      if (target?.closest?.('.mzo-ticket-status,.mzo-card-tools,.mzo-card-controls')) return false;
+      if (target?.closest?.('#dlgChatModal,.attendance-card-container')) return true;
+      return [...record.addedNodes, ...record.removedNodes].some(node =>
+        node.nodeType === Node.ELEMENT_NODE && (node.matches?.('#dlgChatModal,.attendance-card-container') || node.querySelector?.('#dlgChatModal,.attendance-card-container'))
+      );
+    })) scheduleRefresh();
+  });
+  serviceObserver.observe(document.body, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['class','style','data-test'] });
+  setInterval(() => {
+    if (!document.hidden) refreshServiceStates();
+  }, 2400);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleRefresh(); });
 })();
 
 // Observe successful native finalization. No cleanup on selection, cancellation or failure.
@@ -289,7 +336,7 @@
     if(event.source!==window || event.origin!==location.origin || event.data?.source!=='mzo-flag-search-mode')return;
     localSearch=event.data.enabled===true;install();
   });
-  install();setInterval(install,800);
+  install();setInterval(install,1800);
 })();
 
 // Use the recorder directive's actual elapsed time when Angular exposes its controller.
@@ -306,5 +353,5 @@
         if(Number.isFinite(seconds) && seconds>=0 && mic.dataset.mzoNativeElapsed!==String(seconds))mic.dataset.mzoNativeElapsed=String(seconds);
       } catch {}
     }
-  },250);
+  },500);
 })();
