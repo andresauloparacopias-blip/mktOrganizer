@@ -208,6 +208,23 @@
     const seconds=clock ? Number(clock[1])*3600+Number(clock[2])*60+Number(clock[3] || 0) : parts.reduce((sum,[,n,u])=>sum+Number(n)*units[u.toLowerCase()],0);
     return seconds>0 && seconds<=3600;
   }
+  const statusDefaults = {
+    progress:{name:"Em atendimento",color:"#3188df"},
+    reply:{name:"Aguardando atendimento",color:"#ed9228"},
+    closing:{name:"Janela prestes a fechar",color:"#e24949"},
+    closed:{name:"Janela fechada",color:"#e24949"}
+  };
+  function statusConfig(key) {
+    const base=statusDefaults[key];
+    if(!base)return {name:"",color:"#3188df",custom:false};
+    const custom=state.settings.statusStyles?.[key];
+    return {name:typeof custom?.name==='string' && custom.name.trim() ? custom.name.trim().slice(0,60) : base.name,
+      color:/^#[0-9a-f]{6}$/i.test(custom?.color || '') ? custom.color : base.color,
+      custom:/^#[0-9a-f]{6}$/i.test(custom?.color || '')};
+  }
+  function statusSettingsHtml() {
+    return `<div class="mzo-card"><h3>Personalizar status</h3><p class="mzo-muted">Escolha o nome e a cor exibidos nos cards e nos filtros. As regras de cada status continuam sendo determinadas pelo atendimento. As alterações são salvas automaticamente.</p>${Object.keys(statusDefaults).map(key=>{const value=statusConfig(key);return `<div style="display:grid;grid-template-columns:minmax(0,1fr) 50px;gap:10px;margin:12px 0;align-items:end"><label>${safe(statusDefaults[key].name)}<input type="text" maxlength="60" data-status-name="${key}" value="${safe(value.name)}" style="width:100%;box-sizing:border-box" aria-label="Nome de ${safe(statusDefaults[key].name)}"></label><input type="color" data-status-color="${key}" value="${value.color}" aria-label="Cor de ${safe(statusDefaults[key].name)}" style="width:44px;height:34px;padding:2px"></div>`;}).join('')}<button class="mzo-btn secondary" data-action="reset-status-styles">Restaurar status padrão</button></div>`;
+  }
   function paintTicketStatus(card, status) {
     if (ticketWindowClosed(card)) status = "closed";
     else if (ticketWindowClosing(card)) status = "closing";
@@ -217,10 +234,11 @@
     if (!container) return;
     const summary = paintTicketMetrics(card, container);
     if (!status) {
+      card.style.removeProperty("--mzo-state-color");
       badge?.remove();
       return;
     }
-    const labels = { progress:"Em atendimento", reply:"Aguardando atendimento", closing:"Janela prestes a fechar", closed:"Janela fechada" };
+    const appearance = statusConfig(status);
     if (!badge) {
       badge = document.createElement("div");
       badge.className = "mzo-ticket-status";
@@ -233,7 +251,25 @@
     }
     if (badge.dataset.status !== status) {
       badge.dataset.status = status;
-      badge.querySelector("strong").textContent = labels[status];
+
+    }
+    const label=badge.querySelector("strong");
+    if(label.textContent!==appearance.name)label.textContent=appearance.name;
+    if(appearance.custom){
+      card.style.setProperty('--mzo-state-color',appearance.color);
+      const hex=appearance.color.slice(1),rgb=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16));
+      const light=rgb.map(n=>{n/=255;return n<=0.04045?n/12.92:Math.pow((n+0.055)/1.055,2.4);});
+      const luminance=light[0]*0.2126+light[1]*0.7152+light[2]*0.0722;
+      const text=luminance>0.179?'#000000':'#ffffff';
+      badge.style.setProperty('background',appearance.color,'important');
+      badge.style.setProperty('border-color',appearance.color,'important');
+      badge.style.setProperty('color',text,'important');
+      badge.style.setProperty('-webkit-text-fill-color',text,'important');
+      badge.querySelector('.mzo-ticket-status-icon').style.setProperty('color',text,'important');
+    }else{
+      card.style.removeProperty('--mzo-state-color');
+      for(const property of ['background','border-color','color','-webkit-text-fill-color'])badge.style.removeProperty(property);
+      badge.querySelector('.mzo-ticket-status-icon').style.removeProperty('color');
     }
   }
   function paintTicket(card, phone, status = ticketStatus(card)) {
@@ -1226,7 +1262,7 @@
     const signature = JSON.stringify([activeFolder,activeStatusFilter,state.folders]);
     if (shelf.dataset.signature === signature) return;
     shelf.dataset.signature = signature;
-    shelf.innerHTML = `<span class="mzo-folder-heading">Pastas</span>${state.folders.map(folder=>`<button type="button" data-folder="${safe(folder.id)}" class="${activeFolder===folder.id?"active":""}" aria-pressed="${activeFolder===folder.id}" style="--mzo-folder-color:${safe(folder.color)}"><span class="mzo-folder-dot"></span>${safe(folder.name)}</button>`).join("")}<button type="button" class="mzo-folder-create">＋ Criar pasta</button><span class="mzo-folder-spacer" aria-hidden="true"></span><div class="mzo-status-controls"><label class="mzo-status-filter-label">Status<select data-status-filter aria-label="Filtrar atendimentos por status"><option value="" ${activeStatusFilter===""?"selected":""}>Todos os status</option><option value="reply" ${activeStatusFilter==="reply"?"selected":""}>Aguardando resposta</option><option value="progress" ${activeStatusFilter==="progress"?"selected":""}>Em atendimento</option><option value="closing" ${activeStatusFilter==="closing"?"selected":""}>Janela fechando</option><option value="closed" ${activeStatusFilter==="closed"?"selected":""}>Conversas fechadas</option></select></label><button type="button" class="mzo-refresh-attendances" aria-label="Atualizar atendimentos" title="Atualizar a fila na ordem padrão">↻</button></div>`;
+    shelf.innerHTML = `<span class="mzo-folder-heading">Pastas</span>${state.folders.map(folder=>`<button type="button" data-folder="${safe(folder.id)}" class="${activeFolder===folder.id?"active":""}" aria-pressed="${activeFolder===folder.id}" style="--mzo-folder-color:${safe(folder.color)}"><span class="mzo-folder-dot"></span>${safe(folder.name)}</button>`).join("")}<button type="button" class="mzo-folder-create">＋ Criar pasta</button><span class="mzo-folder-spacer" aria-hidden="true"></span><div class="mzo-status-controls"><label class="mzo-status-filter-label">Status<select data-status-filter aria-label="Filtrar atendimentos por status"><option value="" ${activeStatusFilter===""?"selected":""}>Todos os status</option><option value="reply" ${activeStatusFilter==="reply"?"selected":""}>${safe(statusConfig("reply").name)}</option><option value="progress" ${activeStatusFilter==="progress"?"selected":""}>${safe(statusConfig("progress").name)}</option><option value="closing" ${activeStatusFilter==="closing"?"selected":""}>${safe(statusConfig("closing").name)}</option><option value="closed" ${activeStatusFilter==="closed"?"selected":""}>${safe(statusConfig("closed").name)}</option></select></label><button type="button" class="mzo-refresh-attendances" aria-label="Atualizar atendimentos" title="Atualizar a fila na ordem padrão">↻</button></div>`;
     shelf.querySelector(".mzo-folder-create").addEventListener("click", () => { tab = "pastas"; $(".mzo-panel").classList.add("open"); render(); $("#mzo-folder-name")?.focus(); });
     shelf.querySelector(".mzo-refresh-attendances").addEventListener("click", async event => {
       const button = event.currentTarget;
@@ -1418,7 +1454,7 @@
       const items = state.reminders.filter(r => !r.done).sort((a,b)=>new Date(a.at)-new Date(b.at));
       body.innerHTML = `<div class="mzo-card"><h3>Novo lembrete</h3><label class="mzo-field" for="mzo-rem-text">O que lembrar?</label><input class="mzo-input" id="mzo-rem-text" maxlength="240" placeholder="Escreva o que quiser lembrar"><div class="mzo-grid"><div><label class="mzo-field" for="mzo-rem-date">Data</label><input class="mzo-input" id="mzo-rem-date" type="date"></div><div><label class="mzo-field" for="mzo-rem-time">Horário (opcional)</label><input class="mzo-input" id="mzo-rem-time" type="time"></div></div><p class="mzo-muted">Sem horário, o aviso será às 09:00.</p><label class="mzo-field" for="mzo-rem-tone">Som</label><div class="mzo-row"><select class="mzo-select mzo-grow" id="mzo-rem-tone"><option value="padrao" selected>Padrão</option><option value="click">Click</option><option value="continuo">Contínuo</option><option value="nenhum">Sem som</option></select><button class="mzo-btn secondary" data-action="preview-tone">Testar</button></div><div style="height:12px"></div><button class="mzo-btn" data-action="add-reminder">Criar lembrete</button><p class="mzo-muted">O som Contínuo se repete até você silenciar ou concluir. Padrão e Click tocam uma vez.</p></div><h3>Pendentes (${items.length})</h3><div class="mzo-list">${items.map(r=>`<div class="mzo-item"><div class="mzo-item-title">${safe(r.text)}</div><div class="mzo-muted">${formatDate(r.at)} ${due(r)?"· Vencido":""}</div><div class="mzo-actions"><button data-action="done" data-id="${safe(r.id)}">Concluir</button><button data-action="mute" data-id="${safe(r.id)}">Silenciar</button><button data-action="delete-reminder" data-id="${safe(r.id)}">Excluir</button></div></div>`).join("")||`<div class="mzo-empty">Tudo em dia.</div>`}</div>`;
     } else {
-      body.innerHTML = `<div class="mzo-card"><h3>Aparência</h3><label class="mzo-check"><input type="checkbox" id="mzo-dark" ${state.settings.dark?"checked":""}> Tema escuro</label><label class="mzo-check"><input type="checkbox" id="mzo-compact" ${state.settings.compact?"checked":""}> Lista mais compacta</label></div><div class="mzo-card"><h3>Seus dados</h3><p class="mzo-muted">Os dados são salvos no armazenamento local da extensão. Exportar um backup evita perda ao reinstalá-la.</p><div class="mzo-row"><button class="mzo-btn secondary" data-action="export">Exportar backup</button><button class="mzo-btn secondary" data-action="import">Importar backup</button></div></div><div class="mzo-card"><h3>Sobre</h3><p><strong>MKT ORGANIZER</strong><br>Extensão por @andrz.wav</p><p class="mzo-muted">Extensão independente, sem vínculo oficial com o Mktzap. Nenhuma mensagem é enviada ou alterada pela extensão.</p></div>`;
+      body.innerHTML = `<div class="mzo-card"><h3>Aparência</h3><label class="mzo-check"><input type="checkbox" id="mzo-dark" ${state.settings.dark?"checked":""}> Tema escuro</label><label class="mzo-check"><input type="checkbox" id="mzo-compact" ${state.settings.compact?"checked":""}> Lista mais compacta</label></div>${statusSettingsHtml()}<div class="mzo-card"><h3>Seus dados</h3><p class="mzo-muted">Os dados são salvos no armazenamento local da extensão. Exportar um backup evita perda ao reinstalá-la.</p><div class="mzo-row"><button class="mzo-btn secondary" data-action="export">Exportar backup</button><button class="mzo-btn secondary" data-action="import">Importar backup</button></div></div><div class="mzo-card"><h3>Sobre</h3><p><strong>MKT ORGANIZER</strong><br>Extensão por @andrz.wav</p><p class="mzo-muted">Extensão independente, sem vínculo oficial com o Mktzap. Nenhuma mensagem é enviada ou alterada pela extensão.</p></div>`;
     }
   }
 
@@ -1437,6 +1473,7 @@
     const button = event.target.closest("button");
     if (!button) return;
     const picker = $(".mzo-flag-picker");
+    if(button.dataset.action === "reset-status-styles"){delete state.settings.statusStyles;await save("settings");render();scanTickets();return;}
     if (button.hasAttribute("data-icon")) { selectFlagOption(picker, "icon", button.dataset.icon); $("#mzo-flag-emoji").value = button.dataset.icon; return; }
     if (button.hasAttribute("data-color")) { selectFlagOption(picker, "color", button.dataset.color); if (button.dataset.color) $("#mzo-flag-color").value = button.dataset.color; return; }
     if (button.dataset.action === "save-flag" || button.dataset.action === "clear-flag") {
@@ -1525,6 +1562,17 @@
     if (event.target.id === "mzo-search") { query = event.target.value; const caret = event.target.selectionStart; render(); $("#mzo-search")?.focus(); $("#mzo-search")?.setSelectionRange(caret, caret); }
   });
   shadow.addEventListener("change", async event => {
+    const statusKey=event.target.dataset.statusName || event.target.dataset.statusColor;
+    if(Object.hasOwn(statusDefaults,statusKey || '')){
+      const updates=state.settings.statusStyles && typeof state.settings.statusStyles==='object' ? state.settings.statusStyles : {};
+      updates[statusKey]={...(updates[statusKey] || {})};
+      if(event.target.hasAttribute('data-status-name')){
+        updates[statusKey].name=event.target.value.trim().slice(0,60) || statusDefaults[statusKey].name;
+        event.target.value=updates[statusKey].name;
+      }else if(/^#[0-9a-f]{6}$/i.test(event.target.value))updates[statusKey].color=event.target.value;
+      state.settings.statusStyles=updates;
+      await save('settings');scanTickets();return;
+    }
     const folderId = event.target.dataset.folderColorId;
     if (folderId) {
       const folder = state.folders.find(item => item.id === folderId);
