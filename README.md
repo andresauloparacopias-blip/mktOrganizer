@@ -12,7 +12,7 @@ Baixe **Instalar MKT ORGANIZER.exe** na [publicação mais recente](https://gith
 4. Na primeira vez, abra a tela de extensões no Opera, Opera GX ou Chrome, ative **Modo de desenvolvedor**, clique em **Carregar sem compactação** e selecione essa pasta. O botão **Copiar caminho** ajuda nessa etapa.
 5. Abra ou atualize o MKTZap.
 
-O EXE cuida apenas de baixar e atualizar arquivos. A primeira ativação no navegador é manual; ele não ativa o modo desenvolvedor nem altera preferências internas ou políticas do navegador. O botão de atualização busca a versão mais recente publicada no GitHub, independentemente da versão embutida no EXE.
+O EXE baixa e atualiza os arquivos e oferece uma tentativa de primeira ativação pela interface do navegador. Se a interface não for reconhecida, a ativação é concluída manualmente. O botão de atualização busca a versão mais recente publicada no GitHub, independentemente da versão embutida no EXE.
 
 ## Atualizações automáticas
 
@@ -36,3 +36,6 @@ O código da extensão está em `extension/`. O arquivo RAR antigo é mantido ap
 No computador de desenvolvimento, `PUBLICAR ATUALIZACAO.ps1` copia a extensão da pasta Documentos, verifica se houve aumento de versão, cria o commit e envia para este repositório. O Git deve estar instalado e autenticado na conta com acesso de escrita. Nenhuma senha ou token deve ser salvo neste projeto.
 
 Também é possível executar `installer/build.ps1` no Windows para gerar o pacote em `dist/`. O EXE é local e ainda não tem assinatura digital de editor.
+
+## Instalação assistida (3.3.64)
+Após baixar os arquivos, use **Ativar no navegador**, escolha Chrome, Opera ou Opera GX e clique em **Iniciar instalação assistida**. A assistência tenta operar os controles acessíveis da tela de extensões. Aguarde sem usar o computador durante a tentativa e confira se a extensão ficou ativada. Quando um controle não for reconhecido, siga as instruções manuais e use **Copiar caminho**. A assistência atua no perfil aberto do navegador e reconhece os rótulos em português e inglês. As atualizações seguintes continuam usando o atualizador existente.
