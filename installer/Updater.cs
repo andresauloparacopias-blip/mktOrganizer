@@ -104,6 +104,7 @@ internal static class AutoUpdater {
         try{folder.DeleteTask(TaskName,0);}catch(System.Runtime.InteropServices.COMException e){if((uint)e.ErrorCode!=0x80070002)throw;}
     }
     static async System.Threading.Tasks.Task Download(string address,string path,int limit) {
+        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
         using(var client=new HttpClient()) {
             client.Timeout=TimeSpan.FromSeconds(55);client.DefaultRequestHeaders.UserAgent.ParseAdd("MKTOrganizerUpdater/1.0");
             using(var response=await client.GetAsync(address,HttpCompletionOption.ResponseHeadersRead)) {

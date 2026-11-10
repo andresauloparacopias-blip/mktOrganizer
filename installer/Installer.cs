@@ -187,6 +187,7 @@ internal sealed class InstallerForm : Form {
 internal static class Program {
     [STAThread] static int Main(string[] args) {
         try {
+            if(args.Length==2&&args[0]=="--download-test"){string root=Path.GetFullPath(args[1]);Directory.CreateDirectory(root);string result=AutoUpdater.PullLatest(root).GetAwaiter().GetResult();File.WriteAllText(Path.Combine(root,"resultado-rede.txt"),result);return 0;}
             if(args.Length==2&&args[0]=="--updater-test"){AutoUpdater.SelfTest(Path.GetFullPath(args[1]));return 0;}
             if(args.Length==2&&args[0]=="--self-test"){SelfTest(Path.GetFullPath(args[1]));return 0;}
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);

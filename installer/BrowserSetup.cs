@@ -28,7 +28,15 @@ internal static class BrowserSetup {
         string local=Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),program=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),x86=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
         string relative=browser=="Chrome"?"Google\\Chrome\\Application\\chrome.exe":browser=="Opera GX"?"Programs\\Opera GX\\launcher.exe":"Programs\\Opera\\launcher.exe";
         var candidates=browser=="Chrome"?new[]{Path.Combine(program,relative),Path.Combine(x86,relative),Path.Combine(local,relative)}:new[]{Path.Combine(local,relative),Path.Combine(program,browser,"launcher.exe"),Path.Combine(x86,browser,"launcher.exe")};
-        return candidates.FirstOrDefault(File.Exists);
+                string found=candidates.FirstOrDefault(File.Exists);if(found!=null)return found;
+        foreach(var process in Process.GetProcessesByName(browser=="Chrome"?"chrome":"opera"))try{string path=process.MainModule.FileName;if(browser=="Chrome"||path.IndexOf("Opera GX",StringComparison.OrdinalIgnoreCase)>=0==(browser=="Opera GX"))if(File.Exists(path))return path;}catch{}
+        foreach(var hive in new[]{Microsoft.Win32.RegistryHive.CurrentUser,Microsoft.Win32.RegistryHive.LocalMachine})foreach(var view in new[]{Microsoft.Win32.RegistryView.Registry64,Microsoft.Win32.RegistryView.Registry32})try{
+            using(var root=Microsoft.Win32.RegistryKey.OpenBaseKey(hive,view))using(var clients=root.OpenSubKey(@"SOFTWARE\Clients\StartMenuInternet"))if(clients!=null)foreach(string name in clients.GetSubKeyNames()){
+                bool matches=browser=="Chrome"?name.IndexOf("Chrome",StringComparison.OrdinalIgnoreCase)>=0:browser=="Opera GX"?name.IndexOf("Opera GX",StringComparison.OrdinalIgnoreCase)>=0:name.IndexOf("Opera",StringComparison.OrdinalIgnoreCase)>=0&&name.IndexOf("GX",StringComparison.OrdinalIgnoreCase)<0;
+                if(!matches)continue;using(var key=clients.OpenSubKey(name+@"\shell\open\command")){string command=key==null?null:key.GetValue(null) as string;if(String.IsNullOrWhiteSpace(command))continue;command=Environment.ExpandEnvironmentVariables(command.Trim());string path=command.StartsWith("\"")?command.Split('"')[1]:command.Substring(0,command.IndexOf(".exe",StringComparison.OrdinalIgnoreCase)+4);if(File.Exists(path))return path;}
+            }
+        }catch{}
+        return null;
     }
     public static void Show(IWin32Window owner) {
         if(!File.Exists(Path.Combine(Bundle.DocumentsTarget,"manifest.json"))){MessageBox.Show(owner,"Baixe os arquivos da extensão primeiro.","MKT ORGANIZER");return;}
@@ -37,12 +45,12 @@ internal static class BrowserSetup {
             var info=new Label{Left=20,Top=60,Width=530,Height=155,Text="Selecione o navegador e clique em Iniciar. Durante a tentativa, aguarde sem usar o mouse ou o teclado.\n\nA assistência tenta ativar o modo desenvolvedor e carregar a pasta da extensão. Se a interface não for reconhecida, conclua pela tela aberta: Modo desenvolvedor → Carregar sem compactação → escolha a pasta abaixo.\n\n"+Bundle.DocumentsTarget};
             var start=new Button{Left=20,Top=240,Width=250,Height=42,Text="Iniciar instalação assistida"};var copy=new Button{Left=285,Top=240,Width=180,Height=42,Text="Copiar caminho"};copy.Click+=(s,e)=>Clipboard.SetText(Bundle.DocumentsTarget);
             bool running=false;form.FormClosing+=(s,e)=>{if(running)e.Cancel=true;};
-            start.Click+=async(s,e)=>{running=true;start.Enabled=false;select.Enabled=false;copy.Enabled=false;info.Text="Abrindo o navegador e procurando os controles de extensões. Aguarde…";string browser=(string)select.SelectedItem;try{info.Text=await Task.Run(()=>Run(browser));}catch(Exception error){info.Text="Conclua manualmente na tela de extensões: ative Modo desenvolvedor, clique em Carregar sem compactação e selecione:\n"+Bundle.DocumentsTarget+"\n\n"+error.Message;}finally{running=false;start.Enabled=true;select.Enabled=true;copy.Enabled=true;}};
+            start.Click+=async(s,e)=>{running=true;start.Enabled=false;select.Enabled=false;copy.Enabled=false;info.Text="Abrindo o navegador e procurando os controles de extensões. Aguarde…";string browser=(string)select.SelectedItem;try{string executable=Executable(browser);if(executable==null){using(var picker=new OpenFileDialog{Title="Selecione o executável do "+browser,Filter="Navegador (*.exe)|*.exe",CheckFileExists=true}){if(picker.ShowDialog(form)!=DialogResult.OK){info.Text="Seleção cancelada. Você pode tentar novamente ou concluir manualmente.";return;}executable=picker.FileName;}}info.Text=await Task.Run(()=>Run(browser,executable));}catch(Exception error){info.Text="Conclua manualmente na tela de extensões: ative Modo desenvolvedor, clique em Carregar sem compactação e selecione:\n"+Bundle.DocumentsTarget+"\n\n"+error.Message;}finally{running=false;start.Enabled=true;select.Enabled=true;copy.Enabled=true;}};
             form.Controls.AddRange(new Control[]{select,info,start,copy});form.ShowDialog(owner);
         }
     }
-    static string Run(string browser) {
-        string exe=Executable(browser);if(exe==null)throw new FileNotFoundException("Navegador não encontrado na pasta padrão.");
+    static string Run(string browser,string exe) {
+        if(!File.Exists(exe))throw new FileNotFoundException("Executável do navegador não encontrado.");
         string url=browser=="Chrome"?"chrome://extensions/":"opera://extensions/";
         Process.Start(new ProcessStartInfo(exe,"--force-renderer-accessibility "+url){UseShellExecute=true});
         var window=Wait(()=>{
