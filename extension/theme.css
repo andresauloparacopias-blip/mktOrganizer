@@ -1937,3 +1937,16 @@ html.mzo-dark.mzo-light #dlgActiveWhatsapp :is(.modal-footer .btn-default,.modal
 html.mzo-dark.mzo-light #dlgActiveWhatsapp .modal-footer .btn-primary {
   background:#087f72 !important; color:#fff !important; border-color:#087f72 !important;
 }
+
+/* Compact copy action beside the native reply action, in chat and history. */
+html.mzo-dark :is(#dlgChatModal,#historico) .bubble:has(> .mzo-bubble-copy) { position:relative !important; padding-right:50px !important; }
+html.mzo-dark :is(#dlgChatModal,#historico) .bubble > button.mzo-bubble-copy {
+  position:absolute !important; top:4px !important; bottom:auto !important; left:auto !important;
+  display:grid !important; place-items:center; box-sizing:border-box;
+  width:18px !important; height:18px !important; min-width:0 !important; min-height:0 !important;
+  margin:0 !important; padding:1px !important; border:0 !important; border-radius:4px !important;
+  background:transparent !important; color:inherit !important; box-shadow:none !important; opacity:.68 !important; cursor:pointer;
+}
+html.mzo-dark :is(#dlgChatModal,#historico) .bubble > button.mzo-bubble-copy:is(:hover,:focus-visible),
+html.mzo-dark :is(#dlgChatModal,#historico) .bubble > button.mzo-bubble-copy[data-copied] { background:#728fa82b !important; opacity:1 !important; }
+:is(#dlgChatModal,#historico) .mzo-bubble-copy svg { width:13px; height:13px; }

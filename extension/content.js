@@ -303,7 +303,7 @@
       folderButton.style.setProperty("--mzo-card-folder-color", folder?.color || "#7da5c3");
     }
     const hasFlag = !!(flag.icon || flag.color || flag.label);
-    const statusFilterMatches = !activeStatusFilter || card.dataset.mzoVisualState === activeStatusFilter;
+    const statusFilterMatches = !activeStatusFilter || activeStatusFilter === "all" || card.dataset.mzoVisualState === activeStatusFilter;
     const folderFilterMatches = activeStatusFilter ? true : activeFolder ? folderId === activeFolder : !folderId;
     card.classList.toggle("mzo-filter-hidden", !matchesTicketSearch(card,flag) || !folderFilterMatches || !statusFilterMatches);
     const button = card.querySelector(".mzo-flag-button");
@@ -434,6 +434,31 @@
       parts.footer?.remove();
     }
 
+    if (!parts.copy) {
+      parts.copy=document.createElement('button');
+      parts.copy.type='button';parts.copy.className='mzo-bubble-copy';
+      parts.copy.title='Copiar mensagem completa';parts.copy.setAttribute('aria-label','Copiar mensagem completa');
+      parts.copy.innerHTML='<svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
+      parts.copy.addEventListener('click',async event=>{
+        event.preventDefault();event.stopPropagation();
+        const source=bubble.querySelector('.message-wrap') || bubble;
+        const clone=source.cloneNode(true);
+        clone.querySelectorAll('button,script,style,.msg-date,.name,.mzo-chat-stamp,.mzo-native-chat-meta,.mzo-bubble-copy,.mzo-bubble-reply').forEach(node=>node.remove());
+        clone.querySelectorAll('img[alt]').forEach(node=>node.replaceWith(document.createTextNode(node.alt)));
+        clone.querySelectorAll('br').forEach(node=>node.replaceWith(document.createTextNode('\n')));
+        clone.querySelectorAll('p,div,li,blockquote').forEach(node=>node.append(document.createTextNode('\n')));
+        const text=clone.textContent.replace(/\n{3,}/g,'\n\n').trim();
+        if(!text){parts.copy.title='Esta mensagem não possui texto para copiar';return;}
+        try{
+          await navigator.clipboard.writeText(text);
+          parts.copy.title='Mensagem copiada';parts.copy.dataset.copied='true';
+        }catch{parts.copy.title='Não foi possível copiar. Tente novamente.';}
+        clearTimeout(parts.copyReset);
+        parts.copyReset=setTimeout(()=>{parts.copy.title='Copiar mensagem completa';delete parts.copy.dataset.copied;},2000);
+      });
+    }
+    if(parts.copy.parentElement!==bubble)bubble.prepend(parts.copy);
+    parts.copy.style.right=reply?'26px':'4px';
     if (parts.reply !== reply) {
       parts.reply?.classList.remove("mzo-native-chat-meta");
       parts.reply = reply;
@@ -1259,10 +1284,10 @@
         if (tab === "pastas") render();
       });
     }
-    const signature = JSON.stringify([activeFolder,activeStatusFilter,state.folders]);
+    const signature = JSON.stringify([activeFolder,activeStatusFilter,state.folders,state.settings.statusStyles]);
     if (shelf.dataset.signature === signature) return;
     shelf.dataset.signature = signature;
-    shelf.innerHTML = `<span class="mzo-folder-heading">Pastas</span>${state.folders.map(folder=>`<button type="button" data-folder="${safe(folder.id)}" class="${activeFolder===folder.id?"active":""}" aria-pressed="${activeFolder===folder.id}" style="--mzo-folder-color:${safe(folder.color)}"><span class="mzo-folder-dot"></span>${safe(folder.name)}</button>`).join("")}<button type="button" class="mzo-folder-create">＋ Criar pasta</button><span class="mzo-folder-spacer" aria-hidden="true"></span><div class="mzo-status-controls"><label class="mzo-status-filter-label">Status<select data-status-filter aria-label="Filtrar atendimentos por status"><option value="" ${activeStatusFilter===""?"selected":""}>Todos os status</option><option value="reply" ${activeStatusFilter==="reply"?"selected":""}>${safe(statusConfig("reply").name)}</option><option value="progress" ${activeStatusFilter==="progress"?"selected":""}>${safe(statusConfig("progress").name)}</option><option value="closing" ${activeStatusFilter==="closing"?"selected":""}>${safe(statusConfig("closing").name)}</option><option value="closed" ${activeStatusFilter==="closed"?"selected":""}>${safe(statusConfig("closed").name)}</option></select></label><button type="button" class="mzo-refresh-attendances" aria-label="Atualizar atendimentos" title="Atualizar a fila na ordem padrão">↻</button></div>`;
+    shelf.innerHTML = `<span class="mzo-folder-heading">Pastas</span>${state.folders.map(folder=>`<button type="button" data-folder="${safe(folder.id)}" class="${activeFolder===folder.id?"active":""}" aria-pressed="${activeFolder===folder.id}" style="--mzo-folder-color:${safe(folder.color)}"><span class="mzo-folder-dot"></span>${safe(folder.name)}</button>`).join("")}<button type="button" class="mzo-folder-create">＋ Criar pasta</button><span class="mzo-folder-spacer" aria-hidden="true"></span><div class="mzo-status-controls"><label class="mzo-status-filter-label">Status<select data-status-filter aria-label="Filtrar atendimentos por status"><option value="" ${activeStatusFilter===""?"selected":""}>Todos os status</option><option value="all" ${activeStatusFilter==="all"?"selected":""}>Geral</option><option value="reply" ${activeStatusFilter==="reply"?"selected":""}>${safe(statusConfig("reply").name)}</option><option value="progress" ${activeStatusFilter==="progress"?"selected":""}>${safe(statusConfig("progress").name)}</option><option value="closing" ${activeStatusFilter==="closing"?"selected":""}>${safe(statusConfig("closing").name)}</option><option value="closed" ${activeStatusFilter==="closed"?"selected":""}>${safe(statusConfig("closed").name)}</option></select></label><button type="button" class="mzo-refresh-attendances" aria-label="Atualizar atendimentos" title="Atualizar a fila na ordem padrão">↻</button></div>`;
     shelf.querySelector(".mzo-folder-create").addEventListener("click", () => { tab = "pastas"; $(".mzo-panel").classList.add("open"); render(); $("#mzo-folder-name")?.focus(); });
     shelf.querySelector(".mzo-refresh-attendances").addEventListener("click", async event => {
       const button = event.currentTarget;
@@ -1707,7 +1732,7 @@
   });
   window.addEventListener("resize", scheduleScan);
   const scanRegions = ".calls-dashboard, .block-search, #dlgChatModal, #historico";
-  const ownCardUi = ".mzo-recording-timer, .mzo-chat-day, .mzo-bubble-reply, .mzo-chat-stamp, .mzo-ticket-details, .mzo-card-tools, .mzo-card-controls, .mzo-ticket-metrics, .mzo-ticket-status, .mzo-tag-row, .mzo-profile-icon";
+  const ownCardUi = ".mzo-bubble-copy, .mzo-recording-timer, .mzo-chat-day, .mzo-bubble-reply, .mzo-chat-stamp, .mzo-ticket-details, .mzo-card-tools, .mzo-card-controls, .mzo-ticket-metrics, .mzo-ticket-status, .mzo-tag-row, .mzo-profile-icon";
   const observer = new MutationObserver(records => {
     if (records.some(record => {
       const target = record.target.nodeType === Node.ELEMENT_NODE ? record.target : record.target.parentElement;
