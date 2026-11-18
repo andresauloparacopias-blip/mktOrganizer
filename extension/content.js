@@ -1770,10 +1770,11 @@
   let oldUrl = location.href;
   setInterval(() => { if (oldUrl !== location.href) { oldUrl = location.href; detectCurrent(); } }, 800);
   }
-  if (location.pathname.startsWith("/chat")) start();
+  const isAttendancePage = () => /^\/(?:chat|attendances?)(?:\/|$)/i.test(location.pathname) || /^#\/?(?:chat|attendances?)(?:\/|$)/i.test(location.hash) || !!document.querySelector(".calls-dashboard");
+  if (isAttendancePage()) start();
   else {
     const watcher = setInterval(() => {
-      if (location.pathname.startsWith("/chat")) { clearInterval(watcher); start(); }
+      if (isAttendancePage()) { clearInterval(watcher); start(); }
     }, 500);
   }
 })();
