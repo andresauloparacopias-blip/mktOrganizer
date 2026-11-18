@@ -1713,13 +1713,21 @@
   document.addEventListener("dragend", () => { dragScrollY = null; cancelAnimationFrame(dragScrollFrame); dragScrollFrame = 0; });
 
   chrome.storage.local.get(defaults).then(async data => {
-    state = { ...defaults, ...data };
-    applySettings(); detectCurrent(); render();
+    const record=value=>value && typeof value==='object' && !Array.isArray(value) ? value : {};
+    state = {...structuredClone(defaults),...data};
+    state.settings={...defaults.settings,...record(data.settings)};
+    for(const key of ['contacts','flags','folderAssignments'])state[key]=record(data[key]);
+    for(const key of ['folders','reminders'])state[key]=Array.isArray(data[key]) ? data[key].filter(item=>item && typeof item==='object' && typeof item.id==='string') : [];
+    state.manualOrder=Array.isArray(data.manualOrder)?data.manualOrder.filter(item=>typeof item==='string'):[];
+    for(const [area,action] of [['preferências',applySettings],['conversa atual',detectCurrent],['painel',render]]){
+      try{action();}catch(error){reportExtensionError(area,error);}
+    }
     try { scanTickets(); } catch (error) { reportExtensionError("primeira atualização", error); scheduleScan(); }
     document.documentElement.classList.remove("mzo-booting");
   }).catch(error => {
     reportExtensionError("carregamento das preferências", error);
     document.documentElement.classList.remove("mzo-booting");
+    try{applySettings();render();}catch(recoveryError){reportExtensionError("recuperação",recoveryError);}
     scheduleScan();
   });
   chrome.storage.onChanged.addListener((changes, area) => {

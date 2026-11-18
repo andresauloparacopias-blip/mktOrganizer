@@ -151,3 +151,14 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{
 
 // Apply complete local updates without reinstalling or clearing browser storage.
 importScripts("local-update.js");
+
+// Load bundled document parsers only when a preview actually needs one.
+chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{
+  if(message?.type!=='mzo-load-office-parser')return;
+  if(sender.id!==chrome.runtime.id || !sender.tab?.id || !sender.url?.startsWith('https://app3.mktzap.com.br/'))return;
+  const file={docx:'vendor/mammoth.browser.min.js',sheet:'vendor/xlsx.full.min.js'}[message.kind];
+  if(!file){sendResponse({error:'Formato inválido'});return;}
+  chrome.scripting.executeScript({target:{tabId:sender.tab.id,frameIds:[sender.frameId || 0]},world:'ISOLATED',files:[file]})
+    .then(()=>sendResponse({ok:true}),error=>sendResponse({error:error.message}));
+  return true;
+});

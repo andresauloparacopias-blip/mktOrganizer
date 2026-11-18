@@ -5,4 +5,4 @@ chrome.storage.local.get({ settings: { dark: false } }).then(({ settings }) => {
 }).catch(error => console.warn("MKT ORGANIZER: não foi possível carregar o tema inicial", error));
 // content.js removes this class after its first full layout pass. Keep a long
 // failsafe so a broken extension startup cannot leave the site hidden forever.
-setTimeout(() => document.documentElement.classList.remove("mzo-booting"), 10000);
+setTimeout(() => document.documentElement.classList.remove("mzo-booting"), 4000);

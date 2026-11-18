@@ -44,7 +44,16 @@
     }
     return document.body.innerHTML;
   }
+  const parserLoads=new Map();
+  function loadParser(kind) {
+    if(kind==='docx' ? globalThis.mammoth : globalThis.XLSX)return Promise.resolve();
+    if(!parserLoads.has(kind))parserLoads.set(kind,chrome.runtime.sendMessage({type:'mzo-load-office-parser',kind}).then(response=>{
+      if(!response?.ok || !(kind==='docx'?globalThis.mammoth:globalThis.XLSX))throw Error(response?.error || 'Não foi possível carregar o visualizador');
+    }).catch(error=>{parserLoads.delete(kind);throw error;}));
+    return parserLoads.get(kind);
+  }
   async function parse(file) {
+    await loadParser(extensionOf(file)==='DOCX'?'docx':'sheet');
     const bytes=await getBytes(file.url), extension=extensionOf(file);
     if(extension==='DOCX') {
       const result=await mammoth.convertToHtml({arrayBuffer:bytes},{externalFileAccess:false});
